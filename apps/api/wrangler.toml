@@ -1,0 +1,34 @@
+# Hono API — deploy: npm run deploy --workspace=api
+#
+# Before first remote deploy:
+#   wrangler d1 create tradebook-db --location=weur
+#   → put returned database_id below
+#   wrangler r2 bucket create tradebook-media
+#   wrangler kv namespace create RATE_LIMIT
+#   → put KV id below and uncomment the [[kv_namespaces]] block
+#
+name = "tradebook-api"
+main = "src/index.ts"
+compatibility_date = "2025-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+ENVIRONMENT = "development"
+# Optional: add production web origin(s), comma-separated
+CORS_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "tradebook-db"
+database_id = "00000000-0000-0000-0000-000000000001"
+migrations_dir = "migrations"
+
+# Create remote bucket once: wrangler r2 bucket create tradebook-media
+[[r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "tradebook-media"
+
+# Uncomment after creating the KV namespace and pasting its id
+# [[kv_namespaces]]
+# binding = "RATE_LIMIT_KV"
+# id = "YOUR_KV_NAMESPACE_ID"

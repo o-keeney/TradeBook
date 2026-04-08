@@ -1,0 +1,22 @@
+{
+  "name": "tradebook",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=web",
+    "dev:api": "npm run dev --workspace=api",
+    "dev:all": "concurrently -n web,api -c blue,green \"npm run dev --workspace=web\" \"npm run dev --workspace=api\"",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "preview": "npm run preview --workspace=web",
+    "deploy:web": "npm run deploy --workspace=web",
+    "deploy:api": "npm run deploy --workspace=api",
+    "db:generate": "npm run db:generate --workspace=api",
+    "db:migrate:local": "npm run db:migrate:local --workspace=api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

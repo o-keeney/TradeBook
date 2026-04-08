@@ -1,0 +1,48 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1775666880378,
+      "tag": "0000_silent_triathlon",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1775667315737,
+      "tag": "0001_rainy_kang",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1775667540098,
+      "tag": "0002_outstanding_stick",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1775668305634,
+      "tag": "0003_brave_odin",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1775668497633,
+      "tag": "0004_loving_rocket_racer",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1775668757574,
+      "tag": "0005_magical_titanium_man",
+      "breakpoints": true
+    }
+  ]
+}
