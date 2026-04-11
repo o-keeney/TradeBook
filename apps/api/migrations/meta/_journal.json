@@ -43,6 +43,13 @@
       "when": 1775668757574,
       "tag": "0005_magical_titanium_man",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1775669000000,
+      "tag": "0006_platform_settings",
+      "breakpoints": true
     }
   ]
 }

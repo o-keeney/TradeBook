@@ -30,7 +30,7 @@ export function toPublicTradesmanProfile(
   };
 }
 
-/** Owner editing / dashboard — includes visibility flags and subscription fields. */
+/** Owner editing / dashboard: includes visibility flags and subscription fields. */
 export function toOwnerTradesmanProfile(profile: TradesmanProfileRow) {
   return { ...profile };
 }

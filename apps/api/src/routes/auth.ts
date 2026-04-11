@@ -13,19 +13,50 @@ import {
 } from "../lib/session-cookie";
 import { toPublicUser } from "../lib/public-user";
 
-const registerSchema = z.object({
-  email: z
-    .string()
-    .email()
-    .max(320)
-    .transform((s) => s.toLowerCase().trim()),
-  password: z.string().min(8).max(128),
-  role: z.enum(["customer", "tradesman"]),
-  phone: z.string().max(32).optional(),
-  gdprConsentDataProcessing: z.literal(true),
-  gdprConsentMarketing: z.boolean(),
-  gdprConsentContactDisplay: z.boolean(),
-});
+const registerSchema = z
+  .object({
+    email: z
+      .string()
+      .email()
+      .max(320)
+      .transform((s) => s.toLowerCase().trim()),
+    password: z.string().min(8).max(128),
+    role: z.enum(["customer", "tradesman"]),
+    phone: z.string().max(32).optional(),
+    /** Primary trade at signup (tradesman only). */
+    specialty: z.string().max(64).optional(),
+    /** Service or contact address (tradesman only). */
+    address: z.string().max(500).optional(),
+    addressLat: z.number().finite().min(-90).max(90).optional(),
+    addressLng: z.number().finite().min(-180).max(180).optional(),
+    gdprConsentDataProcessing: z.literal(true),
+    gdprConsentMarketing: z.boolean(),
+    gdprConsentContactDisplay: z.boolean(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.role !== "tradesman") return;
+    if (!data.phone?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Phone number is required.",
+        path: ["phone"],
+      });
+    }
+    if (!data.address?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Address is required.",
+        path: ["address"],
+      });
+    }
+    if (!data.specialty?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Specialty is required.",
+        path: ["specialty"],
+      });
+    }
+  });
 
 const loginSchema = z.object({
   email: z
@@ -61,11 +92,13 @@ export const authRoutes = new Hono<{ Bindings: Env }>()
     const passwordHash = await hashPassword(body.password);
 
     try {
+      const phoneNorm = body.phone?.trim() ? body.phone.trim() : null;
+
       await db.insert(users).values({
         id,
         role: body.role,
         email: body.email,
-        phone: body.phone ?? null,
+        phone: phoneNorm,
         passwordHash,
         gdprConsentDataProcessing: true,
         gdprConsentMarketing: body.gdprConsentMarketing,
@@ -74,10 +107,23 @@ export const authRoutes = new Hono<{ Bindings: Env }>()
       });
 
       if (body.role === "tradesman") {
+        const specialty = body.specialty!.trim();
+        const address = body.address!.trim();
+        const regionConfig: Record<string, unknown> = { serviceAddress: address };
+        if (
+          body.addressLat !== undefined &&
+          body.addressLng !== undefined &&
+          Number.isFinite(body.addressLat) &&
+          Number.isFinite(body.addressLng)
+        ) {
+          regionConfig.lat = body.addressLat;
+          regionConfig.lon = body.addressLng;
+        }
         await db.insert(tradesmenProfiles).values({
           userId: id,
-          tradeCategories: [],
-          regionConfig: {},
+          tradeCategories: [specialty],
+          regionConfig,
+          contactPhone: phoneNorm,
         });
       }
     } catch (err: unknown) {

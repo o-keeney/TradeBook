@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { createDb } from "../db/drizzle";
@@ -19,6 +19,7 @@ const regionConfigSchema = z
     radiusKm: z.number().min(1).max(500).optional(),
     lat: z.number().min(-90).max(90).optional(),
     lon: z.number().min(-180).max(180).optional(),
+    serviceAddress: z.string().max(500).optional(),
   })
   .strict()
   .optional();
@@ -60,10 +61,67 @@ async function ensureTradesmanProfile(
   return row;
 }
 
+/** Strip LIKE metacharacters; return null if nothing left to search. */
+function likePattern(raw: string | undefined): string | null {
+  if (!raw) return null;
+  const s = raw.replace(/[%_\\]/g, "").trim().toLowerCase();
+  if (!s) return null;
+  return `%${s}%`;
+}
+
 export const tradesmenRoutes = new Hono<{
   Bindings: Env;
   Variables: { user?: UserRow };
 }>()
+  .get("/search", async (c) => {
+    const profession = likePattern(c.req.query("profession") ?? undefined);
+    const county = likePattern(c.req.query("county") ?? undefined);
+    const address = likePattern(c.req.query("address") ?? undefined);
+
+    if (!profession && !county && !address) {
+      return c.json(
+        {
+          error: {
+            code: "validation_error",
+            message: "Enter at least one of profession, address, or county.",
+          },
+        },
+        400,
+      );
+    }
+
+    const db = createDb(c.env.DB);
+    const conditions = [eq(users.role, "tradesman"), isNull(users.deletedAt)];
+
+    if (profession) {
+      conditions.push(
+        sql`lower(cast(${tradesmenProfiles.tradeCategories} as text)) like ${profession}`,
+      );
+    }
+    if (county) {
+      conditions.push(
+        sql`(lower(${tradesmenProfiles.bio}) like ${county} or lower(cast(${tradesmenProfiles.regionConfig} as text)) like ${county})`,
+      );
+    }
+    if (address) {
+      conditions.push(
+        sql`(lower(${tradesmenProfiles.bio}) like ${address} or lower(cast(${tradesmenProfiles.regionConfig} as text)) like ${address})`,
+      );
+    }
+
+    const rows = await db
+      .select({ user: users, profile: tradesmenProfiles })
+      .from(users)
+      .innerJoin(tradesmenProfiles, eq(tradesmenProfiles.userId, users.id))
+      .where(and(...conditions))
+      .limit(50);
+
+    return c.json({
+      results: rows.map(({ user, profile }) => ({
+        profile: toPublicTradesmanProfile(user, profile),
+      })),
+    });
+  })
   .get("/:id", async (c) => {
     const id = c.req.param("id");
     const db = createDb(c.env.DB);

@@ -21,17 +21,23 @@ export default function DashboardPage() {
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      const res = await apiFetch("/api/users/me");
-      if (res.status === 401) {
-        router.replace("/login?next=/dashboard");
-        return;
+      try {
+        const res = await apiFetch("/api/users/me");
+        if (res.status === 401) {
+          router.replace("/login?next=/dashboard");
+          return;
+        }
+        if (!res.ok) {
+          if (!cancelled) setError("Could not load your account.");
+          return;
+        }
+        const data = (await res.json()) as { user: MeUser };
+        if (!cancelled) setUser(data.user);
+      } catch {
+        if (!cancelled) {
+          setError("Could not reach the API. Start it with npm run dev:api from the repo root.");
+        }
       }
-      if (!res.ok) {
-        setError("Could not load your account.");
-        return;
-      }
-      const data = (await res.json()) as { user: MeUser };
-      if (!cancelled) setUser(data.user);
     }
     void load();
     return () => {
@@ -75,7 +81,7 @@ export default function DashboardPage() {
           <div>
             <dt className="text-neutral-500">Email verified</dt>
             <dd className="font-medium text-neutral-900 dark:text-neutral-100">
-              {user.emailVerified ? "Yes" : "No — verification coming soon"}
+              {user.emailVerified ? "Yes" : "No (verification coming soon)"}
             </dd>
           </div>
           <div>

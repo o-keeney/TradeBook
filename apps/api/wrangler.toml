@@ -1,4 +1,4 @@
-# Hono API — deploy: npm run deploy --workspace=api
+# Hono API. Deploy: npm run deploy --workspace=api
 #
 # Before first remote deploy:
 #   wrangler d1 create tradebook-db --location=weur

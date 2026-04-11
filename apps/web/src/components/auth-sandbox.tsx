@@ -28,6 +28,13 @@ export function AuthSandbox() {
         gdprConsentDataProcessing: true,
         gdprConsentMarketing: marketing,
         gdprConsentContactDisplay: contact,
+        ...(role === "tradesman"
+          ? {
+              phone: "+353870000000",
+              address: "1 Dev Street, Dublin",
+              specialty: "Electrician",
+            }
+          : {}),
       }),
     });
     const text = await res.text();

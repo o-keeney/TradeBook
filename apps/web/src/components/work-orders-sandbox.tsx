@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { MapboxAddressField } from "@/components/mapbox-address-field";
 import { getPublicApiUrl } from "@/lib/public-env";
 
 export function WorkOrdersSandbox() {
   const base = getPublicApiUrl().replace(/\/$/, "");
   const [title, setTitle] = useState("Small plaster repair");
+  const [locationAddress, setLocationAddress] = useState("");
   const [postcode, setPostcode] = useState("D01 A123");
   const [workOrderId, setWorkOrderId] = useState("");
   const [bidCost, setBidCost] = useState("450");
@@ -30,7 +32,7 @@ export function WorkOrdersSandbox() {
         tradeCategory: "plastering",
         title,
         description: "Ceiling crack repair, ~2m².",
-        locationAddress: "Example Street, Dublin",
+        locationAddress: locationAddress.trim() || "Example Street, Dublin",
         locationPostcode: postcode,
         dimensions: { areaSqm: 2 },
       }),
@@ -157,6 +159,17 @@ export function WorkOrdersSandbox() {
           onChange={(e) => setTitle(e.target.value)}
         />
       </label>
+      <div className="mt-2 block space-y-1">
+        <span className="text-xs font-medium text-neutral-800 dark:text-neutral-200">
+          Job address
+        </span>
+        <MapboxAddressField
+          value={locationAddress}
+          onChange={(line) => setLocationAddress(line)}
+          placeholder="Where is the work?"
+          inputClassName="mt-1 w-full rounded border border-neutral-300 bg-white px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-950"
+        />
+      </div>
       <label className="mt-2 block text-xs">
         Eircode / postcode
         <input

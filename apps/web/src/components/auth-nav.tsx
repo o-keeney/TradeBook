@@ -2,40 +2,30 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import { apiFetch } from "@/lib/api";
 
-type MeUser = {
+export type MeUser = {
   id: string;
   email: string;
   role: string;
 };
 
-export function AuthNav() {
+export type AuthNavProps = {
+  user: MeUser | null | undefined;
+  setUser: Dispatch<SetStateAction<MeUser | null | undefined>>;
+};
+
+export function AuthNav({ user, setUser }: AuthNavProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const [user, setUser] = useState<MeUser | null | undefined>(undefined);
-
-  const refresh = useCallback(async () => {
-    const res = await apiFetch("/api/users/me");
-    if (res.status === 401) {
-      setUser(null);
-      return;
-    }
-    if (!res.ok) {
-      setUser(null);
-      return;
-    }
-    const data = (await res.json()) as { user: MeUser };
-    setUser(data.user);
-  }, []);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh, pathname]);
 
   const logout = async () => {
-    await apiFetch("/api/auth/logout", { method: "POST" });
+    try {
+      await apiFetch("/api/auth/logout", { method: "POST" });
+    } catch {
+      // Still clear local UI if the API is unreachable
+    }
     setUser(null);
     router.push("/");
     router.refresh();

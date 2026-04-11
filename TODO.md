@@ -1,4 +1,4 @@
-# TradeBook — outstanding work & progress
+# TradeBook: outstanding work & progress
 
 Use this as a living checklist. Toggle items as you complete them (`[ ]` → `[x]`).
 
@@ -33,7 +33,7 @@ Use this as a living checklist. Toggle items as you complete them (`[ ]` → `[x
 - [ ] `GET/POST /api/gdpr/export` and `DELETE /api/gdpr/erase` (spec) + retention / grace period
 - [ ] Consent audit log (timestamp, IP) for GDPR checkboxes
 - [ ] Cookie banner + consent categories (necessary / analytics / marketing / ads)
-- [ ] Terms of Service, Privacy Policy, subscription terms (Ireland / EU counsel)
+- [ ] Terms of Service, Privacy Policy, subscription terms (Ireland / EU counsel/ GDPR compliant/consent)
 
 ## Product integrations (chosen stack)
 

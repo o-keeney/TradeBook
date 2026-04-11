@@ -92,6 +92,15 @@ export const tradesmenProfiles = sqliteTable("tradesmen_profiles", {
     .default(sql`(strftime('%s','now') * 1000)`),
 });
 
+/** Key/value site configuration (e.g. public pricing). */
+export const platformSettings = sqliteTable("platform_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+    .notNull()
+    .default(sql`(strftime('%s','now') * 1000)`),
+});
+
 export const sessions = sqliteTable(
   "sessions",
   {

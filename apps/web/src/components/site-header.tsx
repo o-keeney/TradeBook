@@ -2,28 +2,60 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { AuthNav } from "@/components/auth-nav";
+import { useCallback, useEffect, useState } from "react";
+import { AuthNav, type MeUser } from "@/components/auth-nav";
+import { apiFetch } from "@/lib/api";
 
 const primaryLinks = [
   { href: "/", label: "Home" },
   { href: "/find-tradesmen", label: "Find tradesmen" },
 ] as const;
 
-const devLinks = [
-  { href: "/dev", label: "Dev hub" },
-  { href: "/dev/auth", label: "Auth" },
+const tradesmanNavLinks = [
   { href: "/dev/portfolio", label: "Portfolio" },
   { href: "/dev/work-orders", label: "Work orders" },
 ] as const;
 
+const adminNavLinks = [{ href: "/admin", label: "Admin" }] as const;
+
 function linkActive(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/";
-  if (href === "/dev") return pathname === "/dev";
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function primaryNavLinkClass(pathname: string, href: string): string {
+  return `rounded-md px-2.5 py-1.5 transition-colors ${
+    linkActive(pathname, href)
+      ? "bg-neutral-200 font-medium text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100"
+      : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-900 dark:hover:text-neutral-100"
+  }`;
 }
 
 export function SiteHeader() {
   const pathname = usePathname();
+  const [user, setUser] = useState<MeUser | null | undefined>(undefined);
+
+  const refresh = useCallback(async () => {
+    try {
+      const res = await apiFetch("/api/users/me");
+      if (res.status === 401) {
+        setUser(null);
+        return;
+      }
+      if (!res.ok) {
+        setUser(null);
+        return;
+      }
+      const data = (await res.json()) as { user: MeUser };
+      setUser(data.user);
+    } catch {
+      setUser(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh, pathname]);
 
   return (
     <header className="sticky top-0 z-50 border-b border-neutral-200/80 bg-[var(--background)]/95 backdrop-blur dark:border-neutral-800/80">
@@ -36,43 +68,30 @@ export function SiteHeader() {
             >
               Tradebook
             </Link>
-            <nav className="flex flex-wrap gap-x-1 gap-y-2 text-sm">
+            <nav className="flex flex-wrap gap-x-1 gap-y-2 text-sm" aria-label="Primary">
               {primaryLinks.map(({ href, label }) => (
-                <Link
-                  key={href}
-                  href={href}
-                  className={`rounded-md px-2.5 py-1.5 transition-colors ${
-                    linkActive(pathname, href)
-                      ? "bg-neutral-200 font-medium text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100"
-                      : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-900 dark:hover:text-neutral-100"
-                  }`}
-                >
+                <Link key={href} href={href} className={primaryNavLinkClass(pathname, href)}>
                   {label}
                 </Link>
               ))}
+              {user?.role === "tradesman"
+                ? tradesmanNavLinks.map(({ href, label }) => (
+                    <Link key={href} href={href} className={primaryNavLinkClass(pathname, href)}>
+                      {label}
+                    </Link>
+                  ))
+                : null}
+              {user?.role === "admin"
+                ? adminNavLinks.map(({ href, label }) => (
+                    <Link key={href} href={href} className={primaryNavLinkClass(pathname, href)}>
+                      {label}
+                    </Link>
+                  ))
+                : null}
             </nav>
           </div>
-          <AuthNav />
+          <AuthNav user={user} setUser={setUser} />
         </div>
-        <nav
-          aria-label="Development tools"
-          className="mt-3 flex flex-wrap gap-x-1 gap-y-1 border-t border-neutral-200 pt-3 text-xs dark:border-neutral-800"
-        >
-          <span className="mr-2 text-neutral-400">Dev:</span>
-          {devLinks.map(({ href, label }) => (
-            <Link
-              key={href}
-              href={href}
-              className={`rounded px-2 py-1 transition-colors ${
-                linkActive(pathname, href)
-                  ? "bg-neutral-200 font-medium text-neutral-800 dark:bg-neutral-800 dark:text-neutral-200"
-                  : "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800 dark:text-neutral-500 dark:hover:bg-neutral-900 dark:hover:text-neutral-200"
-              }`}
-            >
-              {label}
-            </Link>
-          ))}
-        </nav>
       </div>
     </header>
   );

@@ -3,12 +3,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "cf-typegen": "wrangler types --env-interface Env src/env.d.ts",
+    "dev": "node run-wrangler.mjs dev",
+    "deploy": "node run-wrangler.mjs deploy",
+    "cf-typegen": "node run-wrangler.mjs types --env-interface Env src/env.d.ts",
     "db:generate": "drizzle-kit generate",
-    "db:migrate:local": "wrangler d1 migrations apply tradebook-db --local",
-    "db:migrate:remote": "wrangler d1 migrations apply tradebook-db --remote"
+    "db:migrate:local": "node run-wrangler.mjs d1 migrations apply tradebook-db --local",
+    "db:migrate:remote": "node run-wrangler.mjs d1 migrations apply tradebook-db --remote"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

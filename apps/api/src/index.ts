@@ -5,9 +5,11 @@ import { getAllowedOrigins } from "./cors";
 import { createDb } from "./db/drizzle";
 import { users } from "./db/schema";
 import type { Env } from "./env";
+import { adminPricingRoutes } from "./routes/admin-pricing";
 import { authRoutes } from "./routes/auth";
 import { portfolioManageRoutes } from "./routes/portfolio-manage";
 import { publicPortfolioRoutes } from "./routes/portfolio-public";
+import { publicSiteRoutes } from "./routes/public-site";
 import { tradesmenRoutes } from "./routes/tradesmen";
 import { workOrderRoutes } from "./routes/work-orders";
 import { userRoutes } from "./routes/users";
@@ -53,9 +55,11 @@ app.get("/api/health", async (c) => {
 });
 
 app.route("/api", publicPortfolioRoutes);
+app.route("/api/public", publicSiteRoutes);
 app.route("/api/tradesmen", tradesmenRoutes);
 app.route("/api/auth", authRoutes);
 app.route("/api/users", userRoutes);
+app.route("/api/admin", adminPricingRoutes);
 app.route("/api/portfolio", portfolioManageRoutes);
 app.route("/api/work-orders", workOrderRoutes);
 
