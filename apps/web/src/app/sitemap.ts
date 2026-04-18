@@ -23,6 +23,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/register/customer",
     "/register/tradesman",
     "/find-tradesmen",
+    "/how-it-works",
     "/contact",
     "/terms",
     "/privacy",
@@ -41,7 +42,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority:
       path === ""
         ? 1
-        : path === "/find-tradesmen" || path === "/contact"
+        : path === "/find-tradesmen" || path === "/how-it-works" || path === "/contact"
           ? 0.8
           : path === "/terms" || path === "/privacy"
             ? 0.6

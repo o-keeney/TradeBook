@@ -133,9 +133,25 @@ export default async function Home() {
             <li>
               <Link
                 className="font-medium text-[var(--foreground)] underline-offset-4 hover:underline"
+                href="/how-it-works"
+              >
+                How it works
+              </Link>
+            </li>
+            <li>
+              <Link
+                className="font-medium text-[var(--foreground)] underline-offset-4 hover:underline"
                 href="/find-tradesmen"
               >
                 Find tradesmen
+              </Link>
+            </li>
+            <li>
+              <Link
+                className="font-medium text-[var(--foreground)] underline-offset-4 hover:underline"
+                href="/work-orders"
+              >
+                Work orders
               </Link>
             </li>
             <li>
