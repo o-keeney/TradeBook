@@ -13,6 +13,7 @@
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {
+    "@tradebook/construction-professions": "file:../../packages/construction-professions",
     "@mapbox/mapbox-gl-geocoder": "5.0.3",
     "@opennextjs/cloudflare": "^1.18.0",
     "browser-image-compression": "^2.0.2",

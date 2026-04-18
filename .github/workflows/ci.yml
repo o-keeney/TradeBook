@@ -4,28 +4,23 @@ on:
   push:
     branches: [main, master]
   pull_request:
-    branches: [main, master]
 
 jobs:
-  build:
+  verify:
+    name: API typecheck + web lint & build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: package-lock.json
-
-      - name: Install
+      - name: Install dependencies
         run: npm ci
-
-      - name: Lint web
+      - name: API typecheck
+        run: npm run typecheck --workspace=api
+      - name: Web lint
         run: npm run lint --workspace=web
-
-      - name: Build web (Next.js)
+      - name: Web build
         run: npm run build --workspace=web
-
-      - name: Typecheck API
-        run: npx tsc --project apps/api/tsconfig.json

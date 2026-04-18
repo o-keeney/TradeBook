@@ -5,8 +5,11 @@ import { getAllowedOrigins } from "./cors";
 import { createDb } from "./db/drizzle";
 import { users } from "./db/schema";
 import type { Env } from "./env";
+import { csrfProtectionMiddleware, sessionCsrfBootstrapMiddleware } from "./middleware/csrf";
+import { requestLogMiddleware } from "./middleware/request-log";
 import { adminPricingRoutes } from "./routes/admin-pricing";
 import { authRoutes } from "./routes/auth";
+import { gdprRoutes } from "./routes/gdpr";
 import { portfolioManageRoutes } from "./routes/portfolio-manage";
 import { publicPortfolioRoutes } from "./routes/portfolio-public";
 import { publicSiteRoutes } from "./routes/public-site";
@@ -18,16 +21,24 @@ const app = new Hono<{ Bindings: Env }>();
 
 app.use("*", (c, next) => {
   const allowed = getAllowedOrigins(c.env);
+  const isProd = c.env.ENVIRONMENT === "production";
   return cors({
     origin: (origin) => {
       if (!origin) return allowed[0];
-      return allowed.includes(origin) ? origin : allowed[0];
+      if (allowed.includes(origin)) return origin;
+      // Non-production: echo the request origin so login/API work from LAN IPs, alternate hosts, etc.
+      if (!isProd) return origin;
+      return null;
     },
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   })(c, next);
 });
+
+app.use("*", requestLogMiddleware);
+app.use("*", sessionCsrfBootstrapMiddleware);
+app.use("*", csrfProtectionMiddleware);
 
 app.get("/api/health", async (c) => {
   const db = createDb(c.env.DB);
@@ -59,6 +70,7 @@ app.route("/api/public", publicSiteRoutes);
 app.route("/api/tradesmen", tradesmenRoutes);
 app.route("/api/auth", authRoutes);
 app.route("/api/users", userRoutes);
+app.route("/api/gdpr", gdprRoutes);
 app.route("/api/admin", adminPricingRoutes);
 app.route("/api/portfolio", portfolioManageRoutes);
 app.route("/api/work-orders", workOrderRoutes);

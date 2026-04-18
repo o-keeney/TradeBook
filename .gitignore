@@ -4,6 +4,7 @@ node_modules
 dist
 .wrangler
 .dev.vars
+.devs.vars
 .env
 .env.local
 .env.*.local
@@ -11,3 +12,4 @@ dist
 .DS_Store
 coverage
 *.tsbuildinfo
+apps/api/scripts/last-admin-insert.sql

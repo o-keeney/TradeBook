@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { getPublicApiUrl } from "@/lib/public-env";
+import { apiUrl } from "@/lib/api";
+import { CSRF_HEADER_NAME, readCsrfTokenFromDocumentCookie } from "@/lib/csrf-client";
 
 export function AuthSandbox() {
-  const base = getPublicApiUrl().replace(/\/$/, "");
   const [email, setEmail] = useState("dev@example.com");
   const [password, setPassword] = useState("password12");
   const [role, setRole] = useState<"customer" | "tradesman">("customer");
@@ -17,7 +17,7 @@ export function AuthSandbox() {
   }, []);
 
   const register = async () => {
-    const res = await fetch(`${base}/api/auth/register`, {
+    const res = await fetch(apiUrl("/api/auth/register"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -25,6 +25,8 @@ export function AuthSandbox() {
         email,
         password,
         role,
+        firstName: "Dev",
+        lastName: "User",
         gdprConsentDataProcessing: true,
         gdprConsentMarketing: marketing,
         gdprConsentContactDisplay: contact,
@@ -32,7 +34,8 @@ export function AuthSandbox() {
           ? {
               phone: "+353870000000",
               address: "1 Dev Street, Dublin",
-              specialty: "Electrician",
+              specialties: ["Electrician", "Plumber / heating engineer"],
+              companyName: "Dev Co",
             }
           : {}),
       }),
@@ -42,7 +45,7 @@ export function AuthSandbox() {
   };
 
   const login = async () => {
-    const res = await fetch(`${base}/api/auth/login`, {
+    const res = await fetch(apiUrl("/api/auth/login"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -53,15 +56,19 @@ export function AuthSandbox() {
   };
 
   const logout = async () => {
-    const res = await fetch(`${base}/api/auth/logout`, {
+    const headers = new Headers();
+    const csrf = readCsrfTokenFromDocumentCookie();
+    if (csrf) headers.set(CSRF_HEADER_NAME, csrf);
+    const res = await fetch(apiUrl("/api/auth/logout"), {
       method: "POST",
+      headers,
       credentials: "include",
     });
     append(`logout ${res.status}`);
   };
 
   const me = async () => {
-    const res = await fetch(`${base}/api/users/me`, { credentials: "include" });
+    const res = await fetch(apiUrl("/api/users/me"), { credentials: "include" });
     const text = await res.text();
     append(`me ${res.status}: ${text}`);
   };
@@ -73,12 +80,12 @@ export function AuthSandbox() {
   return (
     <section className="mt-10 w-full max-w-md rounded-xl border border-neutral-200 p-4 text-left dark:border-neutral-800">
       <h2 className="text-sm font-medium text-neutral-800 dark:text-neutral-200">
-        Dev auth (cookie, same host as API)
+        Dev auth (session cookie on app origin)
       </h2>
       <p className="mt-1 text-xs text-neutral-500">
-        Use <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-900">npm run dev:all</code>{" "}
-        and open the app via <strong>http://localhost:3000</strong> so cookies match{" "}
-        <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-900">localhost:8787</code>.
+        The browser calls same-origin <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-900">/api/*</code>{" "}
+        (proxied to the worker). Use <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-900">npm run dev:all</code>{" "}
+        and open <strong>http://localhost:3000</strong>.
       </p>
       <label className="mt-3 block text-xs">
         Email

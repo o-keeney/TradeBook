@@ -16,13 +16,10 @@ const customerFeatures = [
 
 function FeatureList({ items }: { items: readonly string[] }) {
   return (
-    <ul className="mt-5 space-y-2.5 text-sm text-neutral-600 dark:text-neutral-400">
+    <ul className="mt-5 space-y-2.5 text-sm text-[var(--muted)]">
       {items.map((text) => (
         <li key={text} className="flex gap-2.5">
-          <span
-            className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400"
-            aria-hidden
-          >
+          <span className="mt-0.5 shrink-0 text-[var(--accent)]" aria-hidden>
             ✓
           </span>
           <span>{text}</span>
@@ -56,79 +53,124 @@ function formatMonthlyEuros(euros: number): string {
   }).format(euros);
 }
 
+const homeCardFootnoteClass =
+  "rounded-xl bg-gradient-to-br from-indigo-50/90 to-white px-5 py-4 shadow-inner ring-1 ring-indigo-100/80 dark:from-neutral-900 dark:to-neutral-950 dark:ring-neutral-800";
+
 export default async function Home() {
   const tradesmanMonthlyEuros = await fetchTradesmanMonthlyEuros();
-  const priceLine = `${formatMonthlyEuros(tradesmanMonthlyEuros)} per month`;
 
   return (
     <main>
-      <section className="border-b border-neutral-200 bg-gradient-to-b from-neutral-50 to-[var(--background)] px-4 py-16 dark:border-neutral-800 dark:from-neutral-950 dark:to-[var(--background)] sm:py-24">
+      <section className="border-b border-[var(--border)] bg-gradient-to-b from-[var(--hero-gradient-from)] to-[var(--background)] px-4 py-16 sm:py-24">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-            Ireland
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-neutral-900 sm:text-4xl dark:text-neutral-50">
+          <p className="text-sm font-medium uppercase tracking-wide text-[var(--muted)]">Ireland</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--foreground)] sm:text-4xl">
             Find tradespeople. Run jobs. Stay in control.
           </h1>
-          <p className="mt-4 text-pretty text-neutral-600 dark:text-neutral-400">
-            Tradebook connects customers with trades across crafts: discovery, quotes, and job
-            tracking in one place. This site is under active development.
+          <p className="mt-4 text-pretty text-[var(--muted)]">
+            Tradebook connects customers with trades across crafts: discovery, quotes, and job tracking in one place.
           </p>
         </div>
       </section>
 
       <section className="mx-auto max-w-5xl px-4 py-14 sm:py-16">
         <div className="grid gap-6 md:grid-cols-2 md:gap-8">
-          <article className="flex flex-col rounded-xl border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-950 sm:p-8">
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-              Are you a service provider?
-            </h2>
-            <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
-              Register now to benefit from the perks of our platform.
-            </p>
+          <article className="flex h-full flex-col rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-950 sm:p-8">
+            <h2 className="text-lg font-semibold text-[var(--foreground)]">Are you a service provider?</h2>
+            <p className="mt-2 text-sm text-[var(--muted)]">Register now to benefit from the perks of our platform.</p>
             <FeatureList items={tradesmanFeatures} />
-            <div className="mt-8">
-              <Link
-                href="/register/tradesman"
-                className="inline-flex rounded-lg bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
-              >
+            <div className="mt-auto pt-8">
+              <Link href="/register/tradesman" className="tb-btn-primary-lg">
                 Register now
               </Link>
-              <p className="mt-5 border-t border-neutral-200 pt-5 text-base font-semibold text-neutral-900 dark:border-neutral-800 dark:text-neutral-100">
-                {priceLine}
-              </p>
+              <div className="mt-6 border-t border-[var(--border)] pt-6 dark:border-neutral-800">
+                <div className={homeCardFootnoteClass}>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--muted)]">
+                    Monthly plan
+                  </p>
+                  <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                    <span className="text-3xl font-bold tabular-nums tracking-tight text-[var(--foreground)]">
+                      {formatMonthlyEuros(tradesmanMonthlyEuros)}
+                    </span>
+                    <span className="text-sm font-medium text-[var(--muted)]">per month</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </article>
 
-          <article className="flex flex-col rounded-xl border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-950 sm:p-8">
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-              For homeowners &amp; customers
-            </h2>
-            <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
-              Use Tradebook to discover trades, compare work, and stay on top of jobs as we roll
-              out the full customer experience.
+          <article className="flex h-full flex-col rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-950 sm:p-8">
+            <h2 className="text-lg font-semibold text-[var(--foreground)]">For customers</h2>
+            <p className="mt-2 text-sm text-[var(--muted)]">
+              Use Tradebook to discover trades, compare work, and stay on top of jobs as we roll out the full customer experience.
             </p>
             <FeatureList items={customerFeatures} />
-            <div className="mt-8">
-              <Link
-                href="/register/customer"
-                className="inline-flex rounded-lg bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
-              >
+            <div className="mt-auto pt-8">
+              <Link href="/register/customer" className="tb-btn-primary-lg">
                 Create a free account
               </Link>
+              <div className="mt-6 border-t border-[var(--border)] pt-6 dark:border-neutral-800">
+                <div className={homeCardFootnoteClass}>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--muted)]">
+                    Customer accounts
+                  </p>
+                  <div className="mt-2">
+                    <span className="text-3xl font-bold tabular-nums tracking-tight text-[var(--foreground)]">Free</span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-500">
-              Have an account?{" "}
-              <Link
-                href="/login"
-                className="font-medium text-neutral-700 underline dark:text-neutral-300"
-              >
-                Log in
-              </Link>{" "}
-              to open your dashboard.
-            </p>
           </article>
         </div>
+
+        <nav
+          aria-label="Popular pages"
+          className="mt-12 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-5 py-6 dark:border-neutral-800 dark:bg-neutral-950 sm:px-8"
+        >
+          <h2 className="text-base font-semibold text-[var(--foreground)]">Explore Tradebook</h2>
+          <ul className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm text-[var(--muted-foreground)]">
+            <li>
+              <Link
+                className="font-medium text-[var(--foreground)] underline-offset-4 hover:underline"
+                href="/find-tradesmen"
+              >
+                Find tradesmen
+              </Link>
+            </li>
+            <li>
+              <Link
+                className="font-medium text-[var(--foreground)] underline-offset-4 hover:underline"
+                href="/contact"
+              >
+                Contact
+              </Link>
+            </li>
+            <li>
+              <Link
+                className="font-medium text-[var(--foreground)] underline-offset-4 hover:underline"
+                href="/login"
+              >
+                Sign in
+              </Link>
+            </li>
+            <li>
+              <Link
+                className="font-medium text-[var(--foreground)] underline-offset-4 hover:underline"
+                href="/terms"
+              >
+                Terms of Service
+              </Link>
+            </li>
+            <li>
+              <Link
+                className="font-medium text-[var(--foreground)] underline-offset-4 hover:underline"
+                href="/privacy"
+              >
+                Privacy Policy
+              </Link>
+            </li>
+          </ul>
+        </nav>
       </section>
     </main>
   );

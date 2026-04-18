@@ -9,7 +9,7 @@ export default function RegisterCustomerPage() {
   return (
     <PageShell
       title="Register as a customer"
-      description="For homeowners and others hiring tradespeople: post work orders, review bids, and follow jobs. Ireland only."
+      description="For customers hiring tradespeople: post work orders, review bids, and follow jobs. Ireland only."
     >
       <RegisterForm
         role="customer"

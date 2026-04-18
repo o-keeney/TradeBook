@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getPublicApiUrl } from "@/lib/public-env";
+import { apiUrl } from "@/lib/api";
 
 type HealthResponse = {
   ok?: boolean;
@@ -16,8 +16,7 @@ export function ApiStatus() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const base = getPublicApiUrl();
-    fetch(`${base.replace(/\/$/, "")}/api/health`, { credentials: "omit" })
+    fetch(apiUrl("/api/health"), { credentials: "omit" })
       .then((r) => {
         if (!r.ok) throw new Error(String(r.status));
         return r.json() as Promise<HealthResponse>;

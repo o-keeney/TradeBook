@@ -2,10 +2,17 @@
 
 import { useCallback, useState } from "react";
 import { MapboxAddressField } from "@/components/mapbox-address-field";
-import { getPublicApiUrl } from "@/lib/public-env";
+import { apiUrl } from "@/lib/api";
+import { CSRF_HEADER_NAME, readCsrfTokenFromDocumentCookie } from "@/lib/csrf-client";
 
 export function WorkOrdersSandbox() {
-  const base = getPublicApiUrl().replace(/\/$/, "");
+  const jsonMutationHeaders = (): Record<string, string> => {
+    const h: Record<string, string> = { "Content-Type": "application/json" };
+    const t = readCsrfTokenFromDocumentCookie();
+    if (t) h[CSRF_HEADER_NAME] = t;
+    return h;
+  };
+
   const [title, setTitle] = useState("Small plaster repair");
   const [locationAddress, setLocationAddress] = useState("");
   const [postcode, setPostcode] = useState("D01 A123");
@@ -23,9 +30,9 @@ export function WorkOrdersSandbox() {
   }, []);
 
   const createOpenBid = async () => {
-    const res = await fetch(`${base}/api/work-orders`, {
+    const res = await fetch(apiUrl("/api/work-orders"), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: jsonMutationHeaders(),
       credentials: "include",
       body: JSON.stringify({
         submissionType: "open_bid",
@@ -48,7 +55,7 @@ export function WorkOrdersSandbox() {
   };
 
   const listMine = async () => {
-    const res = await fetch(`${base}/api/work-orders`, { credentials: "include" });
+    const res = await fetch(apiUrl("/api/work-orders"), { credentials: "include" });
     append(`list (customer/tradesman) ${res.status}: ${await res.text()}`);
   };
 
@@ -57,7 +64,7 @@ export function WorkOrdersSandbox() {
       append("Set work order id.");
       return;
     }
-    const res = await fetch(`${base}/api/work-orders/${workOrderId}/bids`, {
+    const res = await fetch(apiUrl(`/api/work-orders/${workOrderId}/bids`), {
       credentials: "include",
     });
     append(`GET bids (customer) ${res.status}: ${await res.text()}`);
@@ -68,9 +75,9 @@ export function WorkOrdersSandbox() {
       append("Set work order id (create a job first or paste UUID).");
       return;
     }
-    const res = await fetch(`${base}/api/work-orders/${workOrderId}/bids`, {
+    const res = await fetch(apiUrl(`/api/work-orders/${workOrderId}/bids`), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: jsonMutationHeaders(),
       credentials: "include",
       body: JSON.stringify({
         estimatedCost: Number.parseFloat(bidCost) || 0,
@@ -87,7 +94,7 @@ export function WorkOrdersSandbox() {
       append("Set work order id.");
       return;
     }
-    const res = await fetch(`${base}/api/work-orders/${workOrderId}/timeline`, {
+    const res = await fetch(apiUrl(`/api/work-orders/${workOrderId}/timeline`), {
       credentials: "include",
     });
     append(`GET timeline ${res.status}: ${await res.text()}`);
@@ -98,9 +105,9 @@ export function WorkOrdersSandbox() {
       append("Set work order id.");
       return;
     }
-    const res = await fetch(`${base}/api/work-orders/${workOrderId}/updates`, {
+    const res = await fetch(apiUrl(`/api/work-orders/${workOrderId}/updates`), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: jsonMutationHeaders(),
       credentials: "include",
       body: JSON.stringify({
         updateType: "progress_note",
@@ -115,9 +122,9 @@ export function WorkOrdersSandbox() {
       append("Set work order id.");
       return;
     }
-    const res = await fetch(`${base}/api/work-orders/${workOrderId}/status`, {
+    const res = await fetch(apiUrl(`/api/work-orders/${workOrderId}/status`), {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: jsonMutationHeaders(),
       credentials: "include",
       body: JSON.stringify({ status: nextStatus }),
     });
@@ -129,9 +136,9 @@ export function WorkOrdersSandbox() {
       append("Need work order id + bid id from GET bids.");
       return;
     }
-    const res = await fetch(`${base}/api/work-orders/${workOrderId}/award`, {
+    const res = await fetch(apiUrl(`/api/work-orders/${workOrderId}/award`), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: jsonMutationHeaders(),
       credentials: "include",
       body: JSON.stringify({ bidId: awardBidId }),
     });

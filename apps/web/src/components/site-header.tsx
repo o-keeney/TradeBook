@@ -4,16 +4,18 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { AuthNav, type MeUser } from "@/components/auth-nav";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { apiFetch } from "@/lib/api";
 
 const primaryLinks = [
   { href: "/", label: "Home" },
   { href: "/find-tradesmen", label: "Find tradesmen" },
+  { href: "/contact", label: "Contact" },
 ] as const;
 
 const tradesmanNavLinks = [
-  { href: "/dev/portfolio", label: "Portfolio" },
-  { href: "/dev/work-orders", label: "Work orders" },
+  { href: "/portfolio", label: "Portfolio" },
+  { href: "/work-orders", label: "Work orders" },
 ] as const;
 
 const adminNavLinks = [{ href: "/admin", label: "Admin" }] as const;
@@ -26,8 +28,8 @@ function linkActive(pathname: string, href: string): boolean {
 function primaryNavLinkClass(pathname: string, href: string): string {
   return `rounded-md px-2.5 py-1.5 transition-colors ${
     linkActive(pathname, href)
-      ? "bg-neutral-200 font-medium text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100"
-      : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-900 dark:hover:text-neutral-100"
+      ? "bg-[var(--nav-active-bg)] font-medium text-[var(--nav-active-fg)]"
+      : "text-[var(--muted)] hover:bg-[var(--nav-hover-bg)] hover:text-[var(--nav-hover-fg)]"
   }`;
 }
 
@@ -58,13 +60,13 @@ export function SiteHeader() {
   }, [refresh, pathname]);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-neutral-200/80 bg-[var(--background)]/95 backdrop-blur dark:border-neutral-800/80">
+    <header className="sticky top-0 z-50 border-b border-[var(--border)]/90 bg-[var(--background)]/95 backdrop-blur dark:border-[var(--border)]/90">
       <div className="mx-auto max-w-5xl px-4 py-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-3">
             <Link
               href="/"
-              className="text-lg font-semibold tracking-tight text-neutral-900 dark:text-neutral-100"
+              className="text-lg font-semibold tracking-tight text-[var(--foreground)]"
             >
               Tradebook
             </Link>
@@ -90,7 +92,10 @@ export function SiteHeader() {
                 : null}
             </nav>
           </div>
-          <AuthNav user={user} setUser={setUser} />
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-3 sm:ml-auto">
+            <ThemeToggle />
+            <AuthNav user={user} setUser={setUser} />
+          </div>
         </div>
       </div>
     </header>

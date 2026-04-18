@@ -1,0 +1,78 @@
+/**
+ * Standard construction and allied trades (Ireland / UK style), including plant and mechanics.
+ * Used for tradesman signup specialties and server-side validation.
+ */
+export const CONSTRUCTION_PROFESSIONS = [
+  "Air conditioning / refrigeration technician",
+  "Agricultural mechanic / farm machinery mechanic",
+  "Asbestos removal (licensed)",
+  "Bathroom fitter",
+  "Bricklayer / block layer",
+  "Building maintenance tradesperson",
+  "Carpenter / joiner",
+  "Ceiling installer (suspended / MF)",
+  "Cladding / rainscreen installer",
+  "Commercial kitchen installer",
+  "Concreter / shuttering carpenter",
+  "Crane operator",
+  "Damp proofing specialist",
+  "Data / network cabling installer",
+  "Demolition operative",
+  "Diesel / HGV mechanic",
+  "Drainage / ground services installer",
+  "Dryliner / plasterboard fixer",
+  "Electrician",
+  "Epoxy / resin flooring specialist",
+  "Facade / cleaning (rope access)",
+  "Fencer",
+  "Fire door installer",
+  "Floor layer (carpet, vinyl, LVT)",
+  "Formworker / shuttering",
+  "Gas engineer / gas fitter",
+  "General builder",
+  "Glazier",
+  "Green roofer",
+  "Groundworker",
+  "Gutter / fascia / soffit specialist",
+  "Handyman / multi-trade repairs",
+  "Heat pump technician",
+  "Heavy equipment / plant mechanic",
+  "HVAC technician",
+  "Industrial door engineer",
+  "Insulation installer",
+  "Kitchen fitter",
+  "Labourer",
+  "Landscaper (hard landscaping)",
+  "Locksmith",
+  "Metal fabricator / welder",
+  "Mobile plant operator (CPCS / equivalent)",
+  "Motor / automotive mechanic",
+  "Painter / decorator",
+  "Partition installer",
+  "Passive fire stopping specialist",
+  "Paving / tarmac / asphalt layer",
+  "Pipefitter / industrial pipework",
+  "Plasterer",
+  "Plumber / heating engineer",
+  "Renderer (external)",
+  "Roofer (flat and pitched)",
+  "Scaffolder",
+  "Shopfitter",
+  "Solar PV installer",
+  "Staircase specialist",
+  "Steel erector / structural steel",
+  "Stonemason",
+  "Tiler (wall and floor)",
+  "Timber frame carpenter",
+  "Waterproofing / tanking specialist",
+  "Window and door installer (uPVC / aluminium)",
+  "Wood flooring layer",
+] as const;
+
+export type ConstructionProfession = (typeof CONSTRUCTION_PROFESSIONS)[number];
+
+const professionSet = new Set<string>(CONSTRUCTION_PROFESSIONS);
+
+export function isConstructionProfession(value: string): value is ConstructionProfession {
+  return professionSet.has(value);
+}

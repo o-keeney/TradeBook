@@ -14,6 +14,8 @@ export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
   role: text("role", { enum: userRoleEnum }).notNull(),
   email: text("email").notNull().unique(),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
   phone: text("phone"),
   passwordHash: text("password_hash"),
   gdprConsentDataProcessing: integer("gdpr_consent_data_processing", {
@@ -32,6 +34,19 @@ export const users = sqliteTable("users", {
   emailVerified: integer("email_verified", { mode: "boolean" })
     .notNull()
     .default(false),
+  /** SHA-256 hex of the raw token sent by email (never expose to clients). */
+  emailVerificationTokenHash: text("email_verification_token_hash"),
+  emailVerificationExpiresAt: integer("email_verification_expires_at", {
+    mode: "timestamp_ms",
+  }),
+  emailVerificationLastSentAt: integer("email_verification_last_sent_at", {
+    mode: "timestamp_ms",
+  }),
+  /** SHA-256 hex of raw reset token (never expose to clients). */
+  passwordResetTokenHash: text("password_reset_token_hash"),
+  passwordResetExpiresAt: integer("password_reset_expires_at", {
+    mode: "timestamp_ms",
+  }),
   createdAt: integer("created_at", { mode: "timestamp_ms" })
     .notNull()
     .default(sql`(strftime('%s','now') * 1000)`),
@@ -60,6 +75,8 @@ export const tradesmenProfiles = sqliteTable("tradesmen_profiles", {
     .notNull()
     .$defaultFn(() => ({})),
   bio: text("bio").notNull().default(""),
+  /** Optional trading / business name shown on public listings. */
+  companyName: text("company_name"),
   verificationStatus: text("verification_status", {
     enum: verificationStatusEnum,
   })
@@ -126,6 +143,12 @@ export const portfolioProjects = sqliteTable(
       .references(() => users.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     description: text("description").notNull().default(""),
+    /** When the work was done (ISO date YYYY-MM-DD). */
+    projectDate: text("project_date"),
+    /** Free-text duration, e.g. "3 weeks" or "5 days on site". */
+    durationText: text("duration_text"),
+    /** Free-text budget, e.g. "€8,000–€10,000". */
+    budgetText: text("budget_text"),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: integer("created_at", { mode: "timestamp_ms" })
       .notNull()
@@ -266,4 +289,19 @@ export const jobUpdates = sqliteTable(
       .default(sql`(strftime('%s','now') * 1000)`),
   },
   (t) => [index("job_updates_work_order_id_idx").on(t.workOrderId)],
+);
+
+/** Public contact form messages (bugs, feedback, improvements). */
+export const contactSubmissions = sqliteTable(
+  "contact_submissions",
+  {
+    id: text("id").primaryKey(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(strftime('%s','now') * 1000)`),
+    email: text("email").notNull(),
+    name: text("name").notNull(),
+    message: text("message").notNull(),
+  },
+  (t) => [index("contact_submissions_created_at_idx").on(t.createdAt)],
 );

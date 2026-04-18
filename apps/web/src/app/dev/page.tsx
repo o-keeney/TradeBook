@@ -8,14 +8,19 @@ const tools = [
     description: "Register, login, session cookies, and GET /api/users/me.",
   },
   {
-    href: "/dev/portfolio",
+    href: "/portfolio",
     title: "Portfolio",
     description: "Tradesman projects, image uploads (R2), and public portfolio JSON.",
   },
   {
-    href: "/dev/work-orders",
+    href: "/work-orders",
     title: "Work orders",
-    description: "Open bids, quotes, awards, timeline, and status changes.",
+    description: "Browse jobs and timelines (same as the header link).",
+  },
+  {
+    href: "/dev/work-orders-sandbox",
+    title: "Work orders (API sandbox)",
+    description: "Form-style tools to exercise bids, awards, and status APIs.",
   },
 ] as const;
 

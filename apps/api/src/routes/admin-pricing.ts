@@ -1,6 +1,8 @@
+import { desc } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { createDb } from "../db/drizzle";
+import { contactSubmissions } from "../db/schema";
 import type { Env } from "../env";
 import {
   getTradesmanMonthlyEuros,
@@ -24,6 +26,23 @@ export const adminPricingRoutes = new Hono<{
     const db = createDb(c.env.DB);
     const tradesmanMonthlyEuros = await getTradesmanMonthlyEuros(db);
     return c.json({ tradesmanMonthlyEuros });
+  })
+  .get("/contact-submissions", async (c) => {
+    const db = createDb(c.env.DB);
+    const rows = await db
+      .select()
+      .from(contactSubmissions)
+      .orderBy(desc(contactSubmissions.createdAt))
+      .limit(100);
+    return c.json({
+      submissions: rows.map((r) => ({
+        id: r.id,
+        createdAt: r.createdAt.getTime(),
+        email: r.email,
+        name: r.name,
+        message: r.message,
+      })),
+    });
   })
   .patch("/pricing", async (c) => {
     let body: z.infer<typeof patchSchema>;

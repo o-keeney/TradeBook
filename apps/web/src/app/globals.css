@@ -2,20 +2,119 @@
 @import "mapbox-gl/dist/mapbox-gl.css";
 @import "@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+/**
+ * Light (default): Modern SaaS — indigo / purple / slate surfaces.
+ * Dark (optional): saved “classic” neutral scheme (previous site look).
+ */
 :root {
-  --background: #fafafa;
-  --foreground: #0a0a0a;
+  color-scheme: light;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --surface: #ffffff;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --muted: #64748b;
+  --muted-foreground: #475569;
+  --primary: #6366f1;
+  --primary-hover: #4f46e5;
+  --secondary: #8b5cf6;
+  --accent: #22c55e;
+  --nav-active-bg: #e0e7ff;
+  --nav-active-fg: #312e81;
+  --nav-hover-bg: #f1f5f9;
+  --nav-hover-fg: #0f172a;
+  --btn-primary-bg: var(--primary);
+  --btn-primary-hover: var(--primary-hover);
+  --btn-primary-fg: #ffffff;
+  --footer-bg: rgb(248 250 252 / 0.92);
+  --hero-gradient-from: #eef2ff;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #fafafa;
-  }
+html.dark {
+  color-scheme: dark;
+  --background: #0a0a0a;
+  --foreground: #fafafa;
+  --surface: #171717;
+  --border: #262626;
+  --border-strong: #404040;
+  --muted: #a3a3a3;
+  --muted-foreground: #d4d4d4;
+  --primary: #fafafa;
+  --primary-hover: #e5e5e5;
+  --secondary: #a78bfa;
+  --accent: #22c55e;
+  --nav-active-bg: #404040;
+  --nav-active-fg: #fafafa;
+  --nav-hover-bg: #262626;
+  --nav-hover-fg: #fafafa;
+  --btn-primary-bg: #fafafa;
+  --btn-primary-hover: #e5e5e5;
+  --btn-primary-fg: #0a0a0a;
+  --footer-bg: rgb(10 10 10 / 0.88);
+  --hero-gradient-from: #0a0a0a;
 }
 
 body {
   color: var(--foreground);
-  background: var(--background);
+  background-color: var(--background);
   font-family: system-ui, sans-serif;
+}
+
+@layer components {
+  .tb-btn-primary {
+    border-radius: 0.5rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-weight: 500;
+    transition-property: color, background-color;
+    transition-duration: 150ms;
+    background-color: var(--btn-primary-bg);
+    color: var(--btn-primary-fg);
+  }
+  .tb-btn-primary:hover:not(:disabled) {
+    background-color: var(--btn-primary-hover);
+  }
+  .tb-btn-primary:disabled {
+    opacity: 0.6;
+  }
+
+  .tb-btn-primary-sm {
+    border-radius: 0.375rem;
+    padding: 0.375rem 0.625rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-weight: 500;
+    transition-property: color, background-color;
+    transition-duration: 150ms;
+    background-color: var(--btn-primary-bg);
+    color: var(--btn-primary-fg);
+  }
+  .tb-btn-primary-sm:hover:not(:disabled) {
+    background-color: var(--btn-primary-hover);
+  }
+  .tb-btn-primary-sm:disabled {
+    opacity: 0.6;
+  }
+
+  .tb-btn-primary-lg {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    padding: 0.625rem 1.25rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-weight: 500;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    transition-property: color, background-color;
+    transition-duration: 150ms;
+    background-color: var(--btn-primary-bg);
+    color: var(--btn-primary-fg);
+  }
+  .tb-btn-primary-lg:hover {
+    background-color: var(--btn-primary-hover);
+  }
 }

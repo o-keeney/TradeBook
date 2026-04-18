@@ -9,6 +9,9 @@ export type MeUser = {
   id: string;
   email: string;
   role: string;
+  emailVerified?: boolean;
+  firstName?: string | null;
+  lastName?: string | null;
 };
 
 export type AuthNavProps = {
@@ -31,26 +34,21 @@ export function AuthNav({ user, setUser }: AuthNavProps) {
     router.refresh();
   };
 
-  if (user === undefined) {
-    return (
-      <span className="text-xs text-neutral-400" aria-hidden>
-        …
-      </span>
-    );
-  }
-
   if (user) {
     return (
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="hidden text-xs text-neutral-500 sm:inline" title={user.email}>
-          {user.role === "tradesman" ? "Tradesman" : "Customer"}
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <span className="hidden max-w-[10rem] truncate text-xs text-[var(--muted)] sm:inline" title={user.email}>
+          {[user.firstName, user.lastName]
+            .map((s) => s?.trim())
+            .filter((s): s is string => Boolean(s && s.length > 0))
+            .join(" ") || (user.role === "tradesman" ? "Tradesman" : "Customer")}
         </span>
         <Link
           href="/dashboard"
           className={`rounded-md px-2.5 py-1.5 text-sm transition-colors ${
             pathname === "/dashboard"
-              ? "bg-neutral-200 font-medium text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100"
-              : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-900"
+              ? "bg-[var(--nav-active-bg)] font-medium text-[var(--nav-active-fg)]"
+              : "text-[var(--muted)] hover:bg-[var(--nav-hover-bg)] hover:text-[var(--nav-hover-fg)]"
           }`}
         >
           Dashboard
@@ -58,7 +56,7 @@ export function AuthNav({ user, setUser }: AuthNavProps) {
         <button
           type="button"
           onClick={() => void logout()}
-          className="rounded-md px-2.5 py-1.5 text-sm text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-900"
+          className="rounded-md px-2.5 py-1.5 text-sm text-[var(--muted)] hover:bg-[var(--nav-hover-bg)] hover:text-[var(--nav-hover-fg)]"
         >
           Log out
         </button>
@@ -66,22 +64,24 @@ export function AuthNav({ user, setUser }: AuthNavProps) {
     );
   }
 
+  const sessionPending = user === undefined;
+
   return (
-    <div className="flex items-center gap-2">
+    <div
+      className={`flex shrink-0 items-center gap-2 ${sessionPending ? "opacity-70" : ""}`}
+      aria-busy={sessionPending}
+    >
       <Link
         href="/login"
         className={`rounded-md px-2.5 py-1.5 text-sm transition-colors ${
           pathname === "/login"
-            ? "bg-neutral-200 font-medium text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100"
-            : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-900"
+            ? "bg-[var(--nav-active-bg)] font-medium text-[var(--nav-active-fg)]"
+            : "text-[var(--muted)] hover:bg-[var(--nav-hover-bg)] hover:text-[var(--nav-hover-fg)]"
         }`}
       >
         Log in
       </Link>
-      <Link
-        href="/register"
-        className="rounded-md bg-neutral-900 px-2.5 py-1.5 text-sm font-medium text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
-      >
+      <Link href="/register" className="tb-btn-primary-sm">
         Register
       </Link>
     </div>

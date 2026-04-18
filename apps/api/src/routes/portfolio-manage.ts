@@ -5,6 +5,7 @@ import { createDb } from "../db/drizzle";
 import { portfolioProjectImages, portfolioProjects } from "../db/schema";
 import type { Env } from "../env";
 import type { UserRow } from "../lib/public-user";
+import { requireEmailVerifiedForMutations } from "../middleware/email-verified";
 import { requireTradesman } from "../middleware/tradesman";
 import { requireUser } from "../middleware/session";
 
@@ -17,17 +18,46 @@ const ALLOWED_IMAGE_MIME = new Set([
   "image/avif",
 ]);
 
+const isoDateOnly = /^\d{4}-\d{2}-\d{2}$/;
+
 const createProjectSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().max(20_000).optional().default(""),
   sortOrder: z.number().int().optional(),
+  /** Empty string / null from clients are treated as “no date”. */
+  projectDate: z.preprocess(
+    (v) => {
+      if (v === "" || v === null || v === undefined) return undefined;
+      const s = typeof v === "string" ? v.trim() : String(v).trim();
+      return s === "" ? undefined : s;
+    },
+    z.string().max(32).regex(isoDateOnly, "projectDate must be YYYY-MM-DD.").optional(),
+  ),
+  durationText: z.string().max(200).optional(),
+  budgetText: z.string().max(200).optional(),
 });
 
-const patchProjectSchema = z.object({
-  title: z.string().min(1).max(200).optional(),
-  description: z.string().max(20_000).optional(),
-  sortOrder: z.number().int().optional(),
-});
+const patchProjectSchema = z
+  .object({
+    title: z.string().min(1).max(200).optional(),
+    description: z.string().max(20_000).optional(),
+    sortOrder: z.number().int().optional(),
+    projectDate: z.string().max(32).nullable().optional(),
+    durationText: z.string().max(200).nullable().optional(),
+    budgetText: z.string().max(200).nullable().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.projectDate === undefined || data.projectDate === null) return;
+    const d = typeof data.projectDate === "string" ? data.projectDate.trim() : "";
+    if (d === "") return;
+    if (!isoDateOnly.test(d)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "projectDate must be YYYY-MM-DD.",
+        path: ["projectDate"],
+      });
+    }
+  });
 
 const patchImageSchema = z.object({
   caption: z.string().max(500).nullable().optional(),
@@ -40,6 +70,7 @@ const manage = new Hono<{
 }>()
   .use(requireUser)
   .use(requireTradesman)
+  .use(requireEmailVerifiedForMutations)
   .get("/projects", async (c) => {
     const user = c.get("user");
     const db = createDb(c.env.DB);
@@ -68,11 +99,17 @@ const manage = new Hono<{
     const db = createDb(c.env.DB);
     const id = crypto.randomUUID();
     const now = new Date();
+    const projectDateNorm = body.projectDate?.trim() || null;
+    const durationNorm = body.durationText?.trim() || null;
+    const budgetNorm = body.budgetText?.trim() || null;
     await db.insert(portfolioProjects).values({
       id,
       userId: user.id,
       title: body.title,
       description: body.description ?? "",
+      projectDate: projectDateNorm,
+      durationText: durationNorm,
+      budgetText: budgetNorm,
       sortOrder: body.sortOrder ?? 0,
       createdAt: now,
       updatedAt: now,
@@ -157,12 +194,42 @@ const manage = new Hono<{
     }
 
     const now = new Date();
+    const projectDateSet =
+      body.projectDate === undefined
+        ? {}
+        : {
+            projectDate:
+              body.projectDate === null || body.projectDate.trim() === ""
+                ? null
+                : body.projectDate.trim(),
+          };
+    const durationSet =
+      body.durationText === undefined
+        ? {}
+        : {
+            durationText:
+              body.durationText === null || body.durationText.trim() === ""
+                ? null
+                : body.durationText.trim(),
+          };
+    const budgetSet =
+      body.budgetText === undefined
+        ? {}
+        : {
+            budgetText:
+              body.budgetText === null || body.budgetText.trim() === ""
+                ? null
+                : body.budgetText.trim(),
+          };
     await db
       .update(portfolioProjects)
       .set({
         ...(body.title !== undefined ? { title: body.title } : {}),
         ...(body.description !== undefined ? { description: body.description } : {}),
         ...(body.sortOrder !== undefined ? { sortOrder: body.sortOrder } : {}),
+        ...projectDateSet,
+        ...durationSet,
+        ...budgetSet,
         updatedAt: now,
       })
       .where(eq(portfolioProjects.id, projectId));
@@ -244,9 +311,15 @@ const manage = new Hono<{
     const file = raw as Blob & { name?: string };
 
     const caption = form.get("caption");
+    const description = form.get("description");
     const sortRaw = form.get("sortOrder");
-    const captionStr =
-      typeof caption === "string" && caption.length > 0 ? caption.slice(0, 500) : null;
+    const captionFromDescription =
+      typeof description === "string" && description.trim().length > 0
+        ? description.trim().slice(0, 500)
+        : null;
+    const captionFromCaption =
+      typeof caption === "string" && caption.trim().length > 0 ? caption.trim().slice(0, 500) : null;
+    const captionStr = captionFromDescription ?? captionFromCaption;
     const sortOrder =
       typeof sortRaw === "string" && sortRaw !== "" ? Number.parseInt(sortRaw, 10) : 0;
 

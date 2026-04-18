@@ -2,7 +2,8 @@
   "name": "tradebook",
   "private": true,
   "workspaces": [
-    "apps/*"
+    "apps/*",
+    "packages/*"
   ],
   "scripts": {
     "dev": "npm run dev --workspace=web",
@@ -14,7 +15,9 @@
     "deploy:web": "npm run deploy --workspace=web",
     "deploy:api": "npm run deploy --workspace=api",
     "db:generate": "npm run db:generate --workspace=api",
-    "db:migrate:local": "npm run db:migrate:local --workspace=api"
+    "db:migrate:local": "npm run db:migrate:local --workspace=api",
+    "create-admin": "npm run create-admin --workspace=api",
+    "create-admin:apply": "npm run create-admin:apply --workspace=api"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

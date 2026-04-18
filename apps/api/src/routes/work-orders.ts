@@ -11,6 +11,7 @@ import {
 import type { Env } from "../env";
 import type { UserRow } from "../lib/public-user";
 import { requireCustomer } from "../middleware/customer";
+import { requireEmailVerifiedForMutations } from "../middleware/email-verified";
 import { requireTradesman } from "../middleware/tradesman";
 import { requireUser } from "../middleware/session";
 import {
@@ -87,6 +88,7 @@ export const workOrderRoutes = new Hono<{
   Variables: { user: UserRow };
 }>()
   .use(requireUser)
+  .use(requireEmailVerifiedForMutations)
   .get("/", async (c) => {
     const u = c.get("user");
     const db = createDb(c.env.DB);

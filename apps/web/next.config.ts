@@ -10,9 +10,19 @@ if (isNextDev) {
   void initOpenNextCloudflareForDev();
 }
 
+const apiOrigin = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8787").replace(/\/$/, "");
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  transpilePackages: ["mapbox-gl", "@mapbox/mapbox-gl-geocoder"],
+  transpilePackages: [
+    "mapbox-gl",
+    "@mapbox/mapbox-gl-geocoder",
+    "@tradebook/construction-professions",
+  ],
+  /** Browser calls same-origin `/api/*` so session cookies attach to the web app host (see `apiUrl`). */
+  async rewrites() {
+    return [{ source: "/api/:path*", destination: `${apiOrigin}/api/:path*` }];
+  },
 };
 
 export default nextConfig;

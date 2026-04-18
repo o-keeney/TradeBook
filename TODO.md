@@ -13,6 +13,10 @@ Use this as a living checklist. Toggle items as you complete them (`[ ]` → `[x
 - [x] Work orders: direct + open bid, bids, award, cancel, tradesman respond
 - [x] Job timeline: `job_updates`, `GET /timeline`, `POST /updates`, `PUT /status`
 - [x] Dev sandboxes on home page (non-production) for API exercises
+- [x] GitHub Actions: API `tsc` + web `lint` + `build` on push/PR (`.github/workflows/ci.yml`)
+- [x] Contact page + `POST /api/public/contact` storing messages in D1 (`contact_submissions`)
+- [x] `sitemap.xml` + `robots.txt` (Next.js `app/sitemap.ts` / `app/robots.ts`; set `NEXT_PUBLIC_SITE_URL` in prod)
+- [x] Password reset: `POST /api/auth/forgot-password`, `POST /api/auth/reset-password`, `/forgot-password`, `/reset-password` (email via Brevo; dev logs link if email not configured)
 
 ---
 
@@ -20,20 +24,20 @@ Use this as a living checklist. Toggle items as you complete them (`[ ]` → `[x
 
 - [ ] Replace placeholder D1 `database_id` in `apps/api/wrangler.toml` for remote deploy
 - [ ] Document or automate `wrangler d1` / `wrangler r2` one-time setup for new environments
-- [ ] GitHub Actions: run API `tsc`, web `lint` + `build`, optional `wrangler deploy` on main
+- [ ] Optional: extend CI with `wrangler deploy` on main (secrets + remote `database_id` required)
 - [ ] OpenNext / Windows: prefer WSL or Linux CI for reproducible production builds
 - [ ] Secrets: move sensitive vars to `wrangler secret` / dashboard (Stripe, Brevo, Mapbox, BudgetSMS)
-- [ ] Rate limiting: wire `RATE_LIMIT_KV` (namespace id in wrangler) + sensible limits per route
-- [ ] Structured request logging with PII redaction (Workers)
+- [x] Rate limiting: optional `RATE_LIMIT_KV` — fixed-window per IP on auth routes + `POST /api/public/contact` (`middleware/rate-limit.ts`, routes in `auth.ts` / `public-site.ts`). Uncomment KV in `wrangler.toml` with a real id; without KV, limits are skipped (local dev).
+- [x] Structured request logging: one JSON line per request with redacted query secrets and booleans for auth/cookie headers (`middleware/request-log.ts`, `lib/log-redact.ts`). Raw client IPs are not logged.
 
 ## Security & compliance
 
-- [ ] CSRF protection for cookie-based `POST`/`PUT`/`DELETE` from the browser
-- [ ] Argon2id or policy note if staying on bcrypt for passwords
-- [ ] `GET/POST /api/gdpr/export` and `DELETE /api/gdpr/erase` (spec) + retention / grace period
+- [x] CSRF protection: double-submit cookie `tradebook_csrf` + `X-CSRF-Token` on mutating requests when a session cookie is present; exempt auth register/login/forgot/reset + public contact; GET bootstrap mints CSRF for existing sessions (`middleware/csrf.ts`, `lib/csrf-cookie.ts`, `apiFetch` + CORS header). Native/mobile API clients must send the same header or use a non-cookie auth strategy.
+- [x] Argon2id or policy note if staying on bcrypt for passwords (policy note in `apps/api/src/lib/password.ts`; Argon2id upgrade still optional)
+- [x] `GET`/`POST /api/gdpr/export` (JSON) and `DELETE`/`POST /api/gdpr/erase` (typed email + cascade delete + R2 portfolio cleanup; clears session). Dashboard UI when email verified. Formal retention / legal hold / grace period still product/legal TODO.
 - [ ] Consent audit log (timestamp, IP) for GDPR checkboxes
-- [ ] Cookie banner + consent categories (necessary / analytics / marketing / ads)
-- [ ] Terms of Service, Privacy Policy, subscription terms (Ireland / EU counsel/ GDPR compliant/consent)
+- [x] Cookie banner + stored consent prefs (necessary vs accept-all for future analytics/marketing; `cookie-consent-banner.tsx`). Per-category toggles, consent audit log, and ad/analytics wiring still TODO.
+- [x] Stub legal routes: `/terms`, `/privacy` (draft copy), site footer + home “Explore” links, sitemap entries. Counsel-reviewed Terms / Privacy / subscription terms still TODO.
 
 ## Product integrations (chosen stack)
 
@@ -45,14 +49,14 @@ Use this as a living checklist. Toggle items as you complete them (`[ ]` → `[x
 
 ## Auth & accounts
 
-- [ ] Email verification gate (must-verify before full access)
-- [ ] Password reset flow (`forgot-password` / `reset-password`)
+- [x] Email verification gate for mutating API routes + dashboard resend (full “block all reads” optional)
+- [x] Password reset flow (`forgot-password` / `reset-password`)
 - [ ] Optional OAuth (callbacks, providers you choose)
 - [ ] Optional 2FA (spec: future)
 
 ## Discovery & search
 
-- [ ] `GET /api/tradesmen` with filters: trade, postcode/city/GPS + radius, rating, availability, subscription tier
+- [x] `GET /api/tradesmen` with filters: trade, address/county text search, rating, availability, subscription tier (`GET /api/tradesmen/search` is an alias). Geo / postcode radius still TODO.
 - [ ] Efficient geo/postcode strategy on D1 (bounding box + haversine, geohash, or auxiliary index)
 - [ ] Edge caching for public search/profile payloads (Cache API + SWR)
 
@@ -79,14 +83,22 @@ Use this as a living checklist. Toggle items as you complete them (`[ ]` → `[x
 
 ## Admin
 
+- [x] Admin contact inbox: `GET /api/admin/contact-submissions` + list on `/admin` (latest 100). Full dashboard (users, billing, moderation) still TODO.
 - [ ] Admin role + dashboard: users, subscriptions, moderation, ad slots, GDPR requests
 
 ## Frontend (real UI)
 
 - [ ] Replace dev sandboxes with production routes: auth, profile, portfolio, jobs, tradesman search
 - [ ] Mobile-first layout, WCAG 2.1 AA pass
-- [ ] PWA manifest + offline draft queue (spec)
+- [x] PWA web app manifest (`apps/web/src/app/manifest.ts`). Offline draft queue still TODO.
 - [ ] Ads: responsive slots, lazy load, no blocking CTAs
+
+## Website SEO
+
+- [x] Per-route metadata example: `/find-tradesmen` layout (`title`, `description`, canonical). Extend to other hubs as pages stabilize.
+- [x] Structured data: Organization JSON-LD in root layout (`components/organization-jsonld.tsx`). Breadcrumbs / more pages still optional.
+- [x] Technical basics (incremental): internal links from home hub; legal pages use `h1` (shell) + section `h2` hierarchy. Continue alt text and image audits on media-heavy pages.
+- [ ] Performance for SEO: Core Web Vitals (LCP, INP, CLS), image strategy (`next/image` or equivalent)
 
 ## Testing
 

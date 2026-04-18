@@ -16,6 +16,10 @@ compatibility_flags = ["nodejs_compat"]
 ENVIRONMENT = "development"
 # Optional: add production web origin(s), comma-separated
 CORS_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000"
+# Optional: post-verify redirect target (defaults to first CORS origin). Set in production if needed.
+# APP_ORIGIN = "https://your-web-app.example"
+# Email (Brevo): `wrangler secret put BREVO_API_KEY` and set BREVO_SENDER_EMAIL (+ optional BREVO_SENDER_NAME) in [vars] or .dev.vars.
+# Local dev: put secrets in a file named exactly `.dev.vars` next to this file (not `.devs.vars`). Restart `wrangler dev` after changes.
 
 [[d1_databases]]
 binding = "DB"
@@ -28,7 +32,8 @@ migrations_dir = "migrations"
 binding = "MEDIA_BUCKET"
 bucket_name = "tradebook-media"
 
-# Uncomment after creating the KV namespace and pasting its id
+# Uncomment and set a real KV id to enable per-IP rate limits on auth + contact routes (`src/index.ts`).
+# Without this binding, the API skips KV limits (fine for local dev).
 # [[kv_namespaces]]
 # binding = "RATE_LIMIT_KV"
 # id = "YOUR_KV_NAMESPACE_ID"

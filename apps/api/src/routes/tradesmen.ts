@@ -1,4 +1,4 @@
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { createDb } from "../db/drizzle";
@@ -9,6 +9,7 @@ import {
   toOwnerTradesmanProfile,
   toPublicTradesmanProfile,
 } from "../lib/tradesman-profile-view";
+import { requireEmailVerified } from "../middleware/email-verified";
 import { requireTradesman } from "../middleware/tradesman";
 import { requireUser } from "../middleware/session";
 
@@ -26,6 +27,7 @@ const regionConfigSchema = z
 
 const patchProfileSchema = z.object({
   bio: z.string().max(8000).optional(),
+  companyName: z.string().max(120).nullable().optional(),
   tradeCategories: z.array(z.string().min(1).max(64)).max(24).optional(),
   regionConfig: regionConfigSchema,
   isAvailable: z.boolean().optional(),
@@ -69,58 +71,115 @@ function likePattern(raw: string | undefined): string | null {
   return `%${s}%`;
 }
 
+type DiscoveryFilters = {
+  profession: string | null;
+  county: string | null;
+  address: string | null;
+  availableOnly: boolean;
+  minRating: number | null;
+  subscriptionTier: string | null;
+  limit: number;
+};
+
+/** Query params for `GET /api/tradesmen` and `GET /api/tradesmen/search` (same behaviour). */
+function parseDiscoveryQuery(c: {
+  req: { query: (key: string) => string | undefined };
+}): DiscoveryFilters {
+  const profession = likePattern(c.req.query("profession") ?? undefined);
+  const county = likePattern(c.req.query("county") ?? undefined);
+  const address = likePattern(c.req.query("address") ?? undefined);
+  const av = c.req.query("available") ?? c.req.query("is_available");
+  const availableOnly = av === "1" || av === "true" || av === "yes";
+  const minRaw = c.req.query("minRating") ?? c.req.query("min_rating");
+  let minRating: number | null = null;
+  if (minRaw) {
+    const n = Number(minRaw);
+    if (Number.isFinite(n) && n >= 0 && n <= 5) minRating = n;
+  }
+  const tierRaw = c.req.query("tier")?.trim() ?? c.req.query("subscriptionTier")?.trim();
+  const subscriptionTier = tierRaw ? tierRaw : null;
+  const limitRaw = c.req.query("limit");
+  let limit = 50;
+  if (limitRaw) {
+    const n = Number.parseInt(limitRaw, 10);
+    if (Number.isFinite(n)) limit = Math.min(100, Math.max(1, n));
+  }
+  return {
+    profession,
+    county,
+    address,
+    availableOnly,
+    minRating,
+    subscriptionTier,
+    limit,
+  };
+}
+
+async function queryTradesmenDiscovery(
+  db: ReturnType<typeof createDb>,
+  f: DiscoveryFilters,
+) {
+  const conditions = [eq(users.role, "tradesman"), isNull(users.deletedAt)];
+
+  if (f.profession) {
+    conditions.push(
+      sql`lower(cast(${tradesmenProfiles.tradeCategories} as text)) like ${f.profession}`,
+    );
+  }
+  if (f.county) {
+    conditions.push(
+      sql`(lower(${tradesmenProfiles.bio}) like ${f.county} or lower(cast(${tradesmenProfiles.regionConfig} as text)) like ${f.county})`,
+    );
+  }
+  if (f.address) {
+    conditions.push(
+      sql`(lower(${tradesmenProfiles.bio}) like ${f.address} or lower(cast(${tradesmenProfiles.regionConfig} as text)) like ${f.address})`,
+    );
+  }
+  if (f.availableOnly) {
+    conditions.push(eq(tradesmenProfiles.isAvailable, true));
+  }
+  if (f.minRating != null) {
+    conditions.push(
+      sql`${tradesmenProfiles.avgRating} is not null and ${tradesmenProfiles.avgRating} >= ${f.minRating}`,
+    );
+  }
+  if (f.subscriptionTier) {
+    conditions.push(eq(tradesmenProfiles.subscriptionTier, f.subscriptionTier));
+  }
+
+  return db
+    .select({ user: users, profile: tradesmenProfiles })
+    .from(users)
+    .innerJoin(tradesmenProfiles, eq(tradesmenProfiles.userId, users.id))
+    .where(and(...conditions))
+    .orderBy(desc(tradesmenProfiles.avgRating), desc(tradesmenProfiles.reviewCount))
+    .limit(f.limit);
+}
+
+function discoveryResponseJson(
+  rows: Awaited<ReturnType<typeof queryTradesmenDiscovery>>,
+) {
+  return {
+    results: rows.map(({ user, profile }) => ({
+      profile: toPublicTradesmanProfile(user, profile),
+    })),
+  };
+}
+
 export const tradesmenRoutes = new Hono<{
   Bindings: Env;
   Variables: { user?: UserRow };
 }>()
-  .get("/search", async (c) => {
-    const profession = likePattern(c.req.query("profession") ?? undefined);
-    const county = likePattern(c.req.query("county") ?? undefined);
-    const address = likePattern(c.req.query("address") ?? undefined);
-
-    if (!profession && !county && !address) {
-      return c.json(
-        {
-          error: {
-            code: "validation_error",
-            message: "Enter at least one of profession, address, or county.",
-          },
-        },
-        400,
-      );
-    }
-
+  .get("/", async (c) => {
     const db = createDb(c.env.DB);
-    const conditions = [eq(users.role, "tradesman"), isNull(users.deletedAt)];
-
-    if (profession) {
-      conditions.push(
-        sql`lower(cast(${tradesmenProfiles.tradeCategories} as text)) like ${profession}`,
-      );
-    }
-    if (county) {
-      conditions.push(
-        sql`(lower(${tradesmenProfiles.bio}) like ${county} or lower(cast(${tradesmenProfiles.regionConfig} as text)) like ${county})`,
-      );
-    }
-    if (address) {
-      conditions.push(
-        sql`(lower(${tradesmenProfiles.bio}) like ${address} or lower(cast(${tradesmenProfiles.regionConfig} as text)) like ${address})`,
-      );
-    }
-
-    const rows = await db
-      .select({ user: users, profile: tradesmenProfiles })
-      .from(users)
-      .innerJoin(tradesmenProfiles, eq(tradesmenProfiles.userId, users.id))
-      .where(and(...conditions))
-      .limit(50);
-
-    return c.json({
-      results: rows.map(({ user, profile }) => ({
-        profile: toPublicTradesmanProfile(user, profile),
-      })),
-    });
+    const rows = await queryTradesmenDiscovery(db, parseDiscoveryQuery(c));
+    return c.json(discoveryResponseJson(rows));
+  })
+  .get("/search", async (c) => {
+    const db = createDb(c.env.DB);
+    const rows = await queryTradesmenDiscovery(db, parseDiscoveryQuery(c));
+    return c.json(discoveryResponseJson(rows));
   })
   .get("/:id", async (c) => {
     const id = c.req.param("id");
@@ -141,7 +200,7 @@ export const tradesmenRoutes = new Hono<{
       profile: toPublicTradesmanProfile(user, profile),
     });
   })
-  .put("/:id/profile", requireUser, requireTradesman, async (c) => {
+  .put("/:id/profile", requireUser, requireTradesman, requireEmailVerified, async (c) => {
     const id = c.req.param("id");
     const sessionUser = c.get("user");
     if (id !== sessionUser.id) {
@@ -165,10 +224,23 @@ export const tradesmenRoutes = new Hono<{
     await ensureTradesmanProfile(db, id);
 
     const now = new Date();
+    const companyPatch =
+      body.companyName === undefined
+        ? {}
+        : {
+            companyName:
+              body.companyName === null
+                ? null
+                : body.companyName.trim() === ""
+                  ? null
+                  : body.companyName.trim(),
+          };
+
     await db
       .update(tradesmenProfiles)
       .set({
         ...(body.bio !== undefined ? { bio: body.bio } : {}),
+        ...companyPatch,
         ...(body.tradeCategories !== undefined
           ? { tradeCategories: body.tradeCategories }
           : {}),

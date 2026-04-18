@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { MapboxAddressField } from "@/components/mapbox-address-field";
 import { PageShell } from "@/components/page-shell";
 import { apiFetch } from "@/lib/api";
 
 type PublicTradesmanProfile = {
   id: string;
+  displayName: string;
+  companyName: string | null;
   bio: string;
   tradeCategories: string[];
   region: Record<string, unknown>;
@@ -62,47 +64,85 @@ const IRISH_COUNTIES = [
   "Wicklow",
 ] as const;
 
+function formatRatingLine(avg: number | null, reviewCount: number): string {
+  if (reviewCount <= 0) return "No reviews yet";
+  const n = reviewCount === 1 ? "1 review" : `${reviewCount} reviews`;
+  const a = avg == null ? NaN : Number(avg);
+  if (Number.isNaN(a)) return n;
+  return `${a.toFixed(1)} average · ${n}`;
+}
+
 export default function FindTradesmenPage() {
   const [profession, setProfession] = useState("");
   const [address, setAddress] = useState("");
   const [county, setCounty] = useState("");
+  const [availableOnly, setAvailableOnly] = useState(false);
+  const [minRating, setMinRating] = useState("");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<SearchResultRow[] | null>(null);
+  /** `null` until the first list load finishes; then reflects the last successful fetch. */
+  const [listSource, setListSource] = useState<"top" | "search" | null>(null);
   const [error, setError] = useState<string | null>(null);
   /** `undefined` = not loaded, `null` = error or empty, object = payload */
   const [portfolioById, setPortfolioById] = useState<Record<string, unknown | null>>({});
   const [loadingPortfolioId, setLoadingPortfolioId] = useState<string | null>(null);
 
-  async function search(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setResults(null);
-    setPortfolioById({});
-    if (!profession.trim() && !address.trim() && !county.trim()) {
-      setError("Enter at least one of profession, address, or county.");
-      return;
-    }
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (profession.trim()) params.set("profession", profession.trim());
-      if (address.trim()) params.set("address", address.trim());
-      if (county.trim()) params.set("county", county.trim());
-      const res = await apiFetch(`/api/tradesmen/search?${params.toString()}`);
-      const data = (await res.json().catch(() => ({}))) as {
-        error?: { message?: string };
-        results?: SearchResultRow[];
-      };
-      if (!res.ok) {
-        setError(data.error?.message ?? `Search failed (${res.status})`);
-        return;
+  const runSearch = useCallback(
+    async (
+      opts: {
+        profession?: string;
+        address?: string;
+        county?: string;
+        availableOnly?: boolean;
+        minRating?: string;
+      } = {},
+    ) => {
+      setError(null);
+      setPortfolioById({});
+      setLoading(true);
+      try {
+        const params = new URLSearchParams();
+        const p = opts.profession?.trim();
+        const a = opts.address?.trim();
+        const c = opts.county?.trim();
+        if (p) params.set("profession", p);
+        if (a) params.set("address", a);
+        if (c) params.set("county", c);
+        if (opts.availableOnly) params.set("available", "1");
+        const mr = opts.minRating?.trim();
+        if (mr) {
+          const n = Number.parseFloat(mr.replace(",", "."));
+          if (Number.isFinite(n) && n >= 0 && n <= 5) params.set("minRating", String(n));
+        }
+        const isFiltered = [...params.keys()].length > 0;
+        const qs = params.toString();
+        const res = await apiFetch(`/api/tradesmen${qs ? `?${qs}` : ""}`);
+        const data = (await res.json().catch(() => ({}))) as {
+          error?: { message?: string };
+          results?: SearchResultRow[];
+        };
+        if (!res.ok) {
+          setError(data.error?.message ?? `Search failed (${res.status})`);
+          return;
+        }
+        setResults(data.results ?? []);
+        setListSource(isFiltered ? "search" : "top");
+      } catch {
+        setError("Could not reach the API. Start it with npm run dev:api from the repo root.");
+      } finally {
+        setLoading(false);
       }
-      setResults(data.results ?? []);
-    } catch {
-      setError("Could not reach the API. Start it with npm run dev:api from the repo root.");
-    } finally {
-      setLoading(false);
-    }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    void runSearch({});
+  }, [runSearch]);
+
+  function search(e: React.FormEvent) {
+    e.preventDefault();
+    void runSearch({ profession, address, county, availableOnly, minRating });
   }
 
   async function loadPortfolio(userId: string) {
@@ -132,7 +172,7 @@ export default function FindTradesmenPage() {
   return (
     <PageShell
       title="Find tradesmen"
-      description="Search by trade, area, or county. Results match the details tradespeople add to their profiles."
+      description="We show the highest-rated tradespeople first (by average review score). Narrow results with trade, area, or county."
     >
       <form onSubmit={(e) => void search(e)} className="max-w-xl space-y-4">
         <label className="block text-sm font-medium text-neutral-800 dark:text-neutral-200">
@@ -178,6 +218,26 @@ export default function FindTradesmenPage() {
             ))}
           </datalist>
         </label>
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-800 dark:text-neutral-200">
+          <input
+            type="checkbox"
+            checked={availableOnly}
+            onChange={(e) => setAvailableOnly(e.target.checked)}
+            className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-500 dark:border-neutral-600 dark:bg-neutral-950"
+          />
+          Only show tradespeople marked as available
+        </label>
+        <label className="block text-sm font-medium text-neutral-800 dark:text-neutral-200">
+          Minimum average rating (optional, 0–5)
+          <input
+            type="text"
+            inputMode="decimal"
+            value={minRating}
+            onChange={(e) => setMinRating(e.target.value)}
+            placeholder="e.g. 4"
+            className={inputClass}
+          />
+        </label>
         <button
           type="submit"
           disabled={loading}
@@ -186,6 +246,10 @@ export default function FindTradesmenPage() {
           {loading ? "Searching…" : "Search"}
         </button>
       </form>
+
+      {loading && results === null ? (
+        <p className="mt-6 text-sm text-neutral-600 dark:text-neutral-400">Loading tradespeople…</p>
+      ) : null}
 
       {error ? (
         <p className="mt-6 text-sm text-red-600 dark:text-red-400" role="alert">
@@ -196,12 +260,19 @@ export default function FindTradesmenPage() {
       {results !== null ? (
         <div className="mt-8 space-y-4">
           <h2 className="text-sm font-medium text-neutral-500 dark:text-neutral-400">
-            {results.length === 0 ? "No matches" : `${results.length} result${results.length === 1 ? "" : "s"}`}
+            {listSource === "top"
+              ? results.length === 0
+                ? "Top-rated tradespeople"
+                : `Top-rated tradespeople (${results.length})`
+              : results.length === 0
+                ? "No matches"
+                : `Search results (${results.length})`}
           </h2>
           {results.length === 0 ? (
             <p className="text-sm text-neutral-600 dark:text-neutral-400">
-              Try different keywords, or ask tradespeople to fill in trade and service area on their
-              profile.
+              {listSource === "top"
+                ? "No tradespeople are listed yet."
+                : "Try different keywords, or ask tradespeople to fill in trade and service area on their profile."}
             </p>
           ) : (
             <ul className="space-y-4">
@@ -210,7 +281,17 @@ export default function FindTradesmenPage() {
                   key={profile.id}
                   className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-950"
                 >
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-col gap-0.5">
+                    <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
+                      {profile.displayName}
+                    </h3>
+                    {profile.companyName ? (
+                      <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                        {profile.companyName}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
                     {profile.tradeCategories.length ? (
                       profile.tradeCategories.map((t) => (
                         <span
@@ -229,7 +310,10 @@ export default function FindTradesmenPage() {
                       {profile.bio}
                     </p>
                   ) : null}
-                  <p className="mt-2 text-xs text-neutral-500">
+                  <p className="mt-2 text-sm font-medium text-neutral-800 dark:text-neutral-200">
+                    {formatRatingLine(profile.avgRating, profile.reviewCount)}
+                  </p>
+                  <p className="mt-1 text-xs text-neutral-500">
                     {profile.isAvailable ? "Available" : "Unavailable"} ·{" "}
                     {profile.verificationStatus === "verified"
                       ? "Verified"
