@@ -11,6 +11,9 @@
 # BREVO_SENDER_EMAIL=noreply@yourdomain.com
 # BREVO_SENDER_NAME=Tradebook
 
+# --- Messaging WebSocket tickets (optional override; default also in wrangler [vars] for local) ---
+# WEBSOCKET_TICKET_SECRET=
+
 # --- Future (when wired in code) ---
 # STRIPE_SECRET_KEY=
 # STRIPE_WEBHOOK_SECRET=

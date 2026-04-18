@@ -4,6 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import {
+  humanWorkOrderStatus,
+  workOrderListCardAccentClass,
+  workOrderStatusPillClass,
+} from "@/lib/work-order-status-track";
 
 export type WorkOrderRow = {
   id: string;
@@ -16,6 +21,7 @@ export type WorkOrderRow = {
   status: string;
   locationAddress: string;
   locationPostcode: string;
+  budgetText?: string | null;
   dueDate: string | number | Date | null;
   createdAt: string | number | Date;
   updatedAt: string | number | Date;
@@ -34,32 +40,6 @@ function formatDate(v: unknown): string {
 
 function submissionLabel(t: WorkOrderRow["submissionType"]): string {
   return t === "open_bid" ? "Open bid" : "Direct";
-}
-
-function statusPillClass(status: string): string {
-  switch (status) {
-    case "completed":
-      return "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200";
-    case "cancelled":
-    case "declined":
-    case "customer_rejected":
-      return "border-neutral-300 bg-neutral-100 text-neutral-700 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-300";
-    case "open_bidding":
-    case "quotes_submitted":
-      return "border-sky-200 bg-sky-50 text-sky-950 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-100";
-    case "accepted":
-    case "in_progress":
-    case "awaiting_info":
-      return "border-violet-200 bg-violet-50 text-violet-950 dark:border-violet-900/50 dark:bg-violet-950/40 dark:text-violet-100";
-    case "pending":
-      return "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100";
-    default:
-      return "border-neutral-200 bg-neutral-50 text-neutral-800 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200";
-  }
-}
-
-function humanStatus(status: string): string {
-  return status.replace(/_/g, " ");
 }
 
 export function WorkOrdersHub() {
@@ -172,14 +152,14 @@ export function WorkOrdersHub() {
         <li key={wo.id}>
           <Link
             href={`/work-orders/${wo.id}`}
-            className="group flex h-full flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white text-left shadow-sm transition hover:border-neutral-300 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-950 dark:hover:border-neutral-600"
+            className={`group flex h-full flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white text-left shadow-sm transition hover:border-neutral-300 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-950 dark:hover:border-neutral-600 ${workOrderListCardAccentClass(wo.status)}`}
           >
             <div className="flex flex-1 flex-col p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <span
-                  className={`rounded-full border px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide ${statusPillClass(wo.status)}`}
+                  className={`rounded-full border px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide ${workOrderStatusPillClass(wo.status)}`}
                 >
-                  {humanStatus(wo.status)}
+                  {humanWorkOrderStatus(wo.status)}
                 </span>
                 <span className="rounded-full border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-[0.65rem] font-medium text-neutral-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400">
                   {submissionLabel(wo.submissionType)}
@@ -194,6 +174,11 @@ export function WorkOrdersHub() {
               <p className="mt-3 text-xs font-medium capitalize text-neutral-500 dark:text-neutral-400">
                 {wo.tradeCategory.replace(/-/g, " ")}
               </p>
+              {wo.budgetText?.trim() ? (
+                <p className="mt-2 text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                  Budget: {wo.budgetText.trim()}
+                </p>
+              ) : null}
               <p className="mt-1 line-clamp-1 text-xs text-neutral-500 dark:text-neutral-500">
                 {wo.locationAddress}
                 {wo.locationPostcode ? ` · ${wo.locationPostcode}` : ""}

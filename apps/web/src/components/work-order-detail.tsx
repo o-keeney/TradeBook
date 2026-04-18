@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { apiFetch } from "@/lib/api";
+import { formatBudgetDisplay } from "@/lib/format-budget";
+import { humanWorkOrderStatus, workOrderStatusBannerClass } from "@/lib/work-order-status-track";
 import type { WorkOrderRow } from "@/components/work-orders-hub";
 import { WorkOrderPlannerSection } from "@/components/work-order-planner";
 import { postWorkOrderJobImage } from "@/lib/work-order-media";
@@ -42,10 +44,6 @@ function formatDateTime(v: unknown): string {
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-function humanStatus(status: string): string {
-  return status.replace(/_/g, " ");
 }
 
 function CustomerReviewPanel({
@@ -174,24 +172,15 @@ function CustomerReviewPanel({
   );
 }
 
-function statusBannerClass(status: string): string {
-  switch (status) {
-    case "completed":
-      return "border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-100";
-    case "cancelled":
-    case "declined":
-    case "customer_rejected":
-      return "border-neutral-300 bg-neutral-100 text-neutral-800 dark:border-neutral-600 dark:bg-neutral-800/80 dark:text-neutral-200";
-    case "open_bidding":
-    case "quotes_submitted":
-      return "border-sky-200 bg-sky-50 text-sky-950 dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-100";
-    default:
-      return "border-violet-200 bg-violet-50 text-violet-950 dark:border-violet-900/40 dark:bg-violet-950/30 dark:text-violet-100";
-  }
-}
-
 function canUploadJobPhotos(me: { id: string } | null, wo: WorkOrderRow): boolean {
   if (!me) return false;
+  if (
+    wo.customerId === me.id &&
+    wo.submissionType === "direct" &&
+    wo.status === "pending"
+  ) {
+    return true;
+  }
   if (
     wo.customerId === me.id &&
     (wo.status === "open_bidding" || wo.status === "quotes_submitted")
@@ -227,6 +216,9 @@ export function WorkOrderDetail() {
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoErr, setPhotoErr] = useState<string | null>(null);
   const [rejectBusy, setRejectBusy] = useState(false);
+  const [jobConversationId, setJobConversationId] = useState<string | null>(null);
+  const [jobConvLoading, setJobConvLoading] = useState(false);
+  const [jobConvErr, setJobConvErr] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -297,6 +289,58 @@ export function WorkOrderDetail() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    const woRow = workOrder;
+    if (!id || !woRow || !me || !woRow.assignedTradesmanId) {
+      setJobConversationId(null);
+      setJobConvLoading(false);
+      setJobConvErr(null);
+      return;
+    }
+    const eligible = me.id === woRow.customerId || me.id === woRow.assignedTradesmanId;
+    if (!eligible) {
+      setJobConversationId(null);
+      setJobConvLoading(false);
+      setJobConvErr(null);
+      return;
+    }
+    let cancelled = false;
+    setJobConvLoading(true);
+    setJobConvErr(null);
+    void (async () => {
+      try {
+        const res = await apiFetch(`/api/conversations/by-work-order/${encodeURIComponent(id)}`);
+        if (cancelled) return;
+        if (!res.ok) {
+          setJobConversationId(null);
+          setJobConvErr(
+            res.status === 404
+              ? "Messaging is not available for this job."
+              : "Could not load the message thread.",
+          );
+          return;
+        }
+        const j = (await res.json()) as { conversation?: { id: string } };
+        if (cancelled) return;
+        const cid = j.conversation?.id ?? null;
+        setJobConversationId(cid);
+        if (!cid) {
+          setJobConvErr("Could not open the message thread.");
+        }
+      } catch {
+        if (!cancelled) {
+          setJobConversationId(null);
+          setJobConvErr("Network error.");
+        }
+      } finally {
+        if (!cancelled) setJobConvLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, workOrder, me]);
+
   if (!id) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-10">
@@ -336,6 +380,11 @@ export function WorkOrderDetail() {
     me.id === wo.customerId &&
     wo.submissionType === "open_bid" &&
     (wo.status === "open_bidding" || wo.status === "quotes_submitted");
+
+  const showJobMessagesCta =
+    me != null &&
+    Boolean(wo.assignedTradesmanId) &&
+    (me.id === wo.customerId || me.id === wo.assignedTradesmanId);
 
   const rejectOpenQuotes = async () => {
     if (!showRejectQuotes || rejectBusy) return;
@@ -421,11 +470,11 @@ export function WorkOrderDetail() {
       </nav>
 
       <header
-        className={`mb-8 rounded-2xl border px-5 py-4 sm:px-6 sm:py-5 ${statusBannerClass(wo.status)}`}
+        className={`mb-8 rounded-2xl border px-5 py-4 sm:px-6 sm:py-5 ${workOrderStatusBannerClass(wo.status)}`}
       >
         <p className="text-xs font-semibold uppercase tracking-wide opacity-80">Status</p>
         <p className="mt-1 text-xl font-bold capitalize tracking-tight sm:text-2xl">
-          {humanStatus(wo.status)}
+          {humanWorkOrderStatus(wo.status)}
         </p>
         <h1 className="mt-4 text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-3xl">
           {wo.title}
@@ -466,6 +515,15 @@ export function WorkOrderDetail() {
         <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">{wo.locationPostcode}</p>
       </section>
 
+      {wo.budgetText?.trim() ? (
+        <section className="mb-10 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-950 sm:p-6">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+            Budget
+          </h2>
+          <p className="mt-2 text-neutral-800 dark:text-neutral-200">{formatBudgetDisplay(wo.budgetText.trim())}</p>
+        </section>
+      ) : null}
+
       <section className="mb-10">
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Description</h2>
         <div className="mt-4 max-w-none text-base leading-relaxed text-neutral-700 dark:text-neutral-300">
@@ -476,6 +534,31 @@ export function WorkOrderDetail() {
           ))}
         </div>
       </section>
+
+      {showJobMessagesCta ? (
+        <section className="mb-10 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-950 sm:p-6">
+          <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Job messages</h2>
+          <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+            Private chat between you and the other party on this job. It does not appear on the public job timeline.
+          </p>
+          {jobConvLoading ? (
+            <p className="mt-3 text-sm text-neutral-500">Opening thread…</p>
+          ) : jobConvErr ? (
+            <p className="mt-3 text-sm text-red-600 dark:text-red-400" role="alert">
+              {jobConvErr}
+            </p>
+          ) : jobConversationId ? (
+            <Link
+              href={`/messages/${encodeURIComponent(jobConversationId)}`}
+              className="mt-4 inline-flex rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
+            >
+              Open messages
+            </Link>
+          ) : (
+            <p className="mt-3 text-sm text-neutral-500">No message thread yet.</p>
+          )}
+        </section>
+      ) : null}
 
       <WorkOrderPlannerSection
         workOrderId={wo.id}

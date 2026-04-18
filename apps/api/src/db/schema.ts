@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   index,
   integer,
+  primaryKey,
   real,
   sqliteTable,
   text,
@@ -34,6 +35,8 @@ export const users = sqliteTable("users", {
   emailVerified: integer("email_verified", { mode: "boolean" })
     .notNull()
     .default(false),
+  /** SMS / BudgetSMS flow not wired yet; admins can set for testing when SMS gate is on. */
+  phoneVerified: integer("phone_verified", { mode: "boolean" }).notNull().default(false),
   /** SHA-256 hex of the raw token sent by email (never expose to clients). */
   emailVerificationTokenHash: text("email_verification_token_hash"),
   emailVerificationExpiresAt: integer("email_verification_expires_at", {
@@ -129,6 +132,9 @@ export const tradesmenProfiles = sqliteTable("tradesmen_profiles", {
   contactPhoneVisible: integer("contact_phone_visible", { mode: "boolean" })
     .notNull()
     .default(false),
+  /** R2 object key for optional public headshot (served from GET …/profile-photo/file). */
+  profilePhotoR2Key: text("profile_photo_r2_key"),
+  profilePhotoMimeType: text("profile_photo_mime_type"),
   createdAt: integer("created_at", { mode: "timestamp_ms" })
     .notNull()
     .default(sql`(strftime('%s','now') * 1000)`),
@@ -254,6 +260,8 @@ export const workOrders = sqliteTable(
     }).notNull(),
     status: text("status", { enum: workOrderStatusEnum }).notNull(),
     dueDate: integer("due_date", { mode: "timestamp_ms" }),
+    /** Customer free-text budget or range, e.g. "€3,000–€5,000". */
+    budgetText: text("budget_text"),
     createdAt: integer("created_at", { mode: "timestamp_ms" })
       .notNull()
       .default(sql`(strftime('%s','now') * 1000)`),
@@ -367,6 +375,69 @@ export const plannerTasks = sqliteTable(
       .default(sql`(strftime('%s','now') * 1000)`),
   },
   (t) => [index("planner_tasks_work_order_id_idx").on(t.workOrderId)],
+);
+
+/** One chat thread per work order (customer ↔ assignee). */
+export const conversations = sqliteTable(
+  "conversations",
+  {
+    id: text("id").primaryKey(),
+    workOrderId: text("work_order_id")
+      .notNull()
+      .references(() => workOrders.id, { onDelete: "cascade" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(strftime('%s','now') * 1000)`),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(strftime('%s','now') * 1000)`),
+  },
+  (t) => [
+    uniqueIndex("conversations_work_order_id_unique").on(t.workOrderId),
+    index("conversations_updated_at_idx").on(t.updatedAt),
+  ],
+);
+
+export const conversationMessages = sqliteTable(
+  "conversation_messages",
+  {
+    id: text("id").primaryKey(),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => conversations.id, { onDelete: "cascade" }),
+    authorId: text("author_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(strftime('%s','now') * 1000)`),
+  },
+  (t) => [
+    index("conversation_messages_conversation_id_created_at_idx").on(
+      t.conversationId,
+      t.createdAt,
+    ),
+    index("conversation_messages_author_id_idx").on(t.authorId),
+  ],
+);
+
+/** Per-user read cursor for unread counts / receipts. */
+export const conversationReadStates = sqliteTable(
+  "conversation_read_states",
+  {
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => conversations.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    lastReadAt: integer("last_read_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.conversationId, t.userId] }),
+    index("conversation_read_states_user_id_idx").on(t.userId),
+  ],
 );
 
 /** Customer review of the assigned tradesman for a completed work order (one row per job). */

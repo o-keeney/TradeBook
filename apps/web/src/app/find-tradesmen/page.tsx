@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AdSlot } from "@/components/ad-slot";
 import { MapboxAddressField } from "@/components/mapbox-address-field";
 import { PageShell } from "@/components/page-shell";
+import { TradesmanProfileAvatar } from "@/components/tradesman-public-profile-view";
 import { apiFetch } from "@/lib/api";
 
 type PublicTradesmanProfile = {
@@ -19,6 +20,7 @@ type PublicTradesmanProfile = {
   avgRating: number | null;
   reviewCount: number;
   subscriptionTier: string | null;
+  profilePhotoUrl?: string | null;
   contact?: { email?: string; phone?: string };
 };
 
@@ -274,15 +276,18 @@ export default function FindTradesmenPage() {
                     className="block cursor-pointer rounded-xl border border-neutral-200 bg-white p-4 shadow-sm outline-none ring-neutral-900/10 transition hover:border-neutral-300 hover:shadow-md focus-visible:ring-2 dark:border-neutral-800 dark:bg-neutral-950 dark:ring-white/20 dark:hover:border-neutral-700"
                     aria-label={`View profile and portfolio for ${profile.displayName}`}
                   >
-                    <div className="flex flex-col gap-0.5">
-                      <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
-                        {profile.displayName}
-                      </h3>
-                      {profile.companyName ? (
-                        <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                          {profile.companyName}
-                        </p>
-                      ) : null}
+                    <div className="flex gap-3">
+                      <TradesmanProfileAvatar profile={profile} size="sm" />
+                      <div className="min-w-0 flex-1 flex flex-col gap-0.5">
+                        <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
+                          {profile.displayName}
+                        </h3>
+                        {profile.companyName ? (
+                          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                            {profile.companyName}
+                          </p>
+                        ) : null}
+                      </div>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {profile.tradeCategories.length ? (

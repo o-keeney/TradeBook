@@ -68,8 +68,8 @@ Use this as a living checklist. Toggle items as you complete them (`[ ]` → `[x
 
 ## Messaging
 
-- [ ] `conversations` + `messages` + REST + read receipts
-- [ ] Realtime: Durable Objects + WebSocket/SSE (spec)
+- [x] `conversations` + `messages` + REST + read receipts
+- [x] Realtime: Durable Objects + WebSocket (per-thread fan-out, signed `ws-ticket`; inbox list still REST). SSE / typing indicators optional later.
 
 ## Reviews & reputation
 

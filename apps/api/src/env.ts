@@ -1,5 +1,12 @@
 export interface Env {
   DB: D1Database;
+  /** Fan-out for per-conversation WebSocket subscribers (`idFromName(conversationId)`). */
+  CONVERSATION_ROOM: DurableObjectNamespace;
+  /**
+   * HMAC secret for short-lived WebSocket tickets (`POST .../ws-ticket`).
+   * Set in production via `wrangler secret put WEBSOCKET_TICKET_SECRET` or `[vars]` for non-prod.
+   */
+  WEBSOCKET_TICKET_SECRET?: string;
   /** Portfolio / uploads: omit binding only when R2 is disabled in wrangler */
   MEDIA_BUCKET?: R2Bucket;
   /** Add after: wrangler kv namespace create RATE_LIMIT */

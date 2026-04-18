@@ -6,6 +6,11 @@ import { usePathname } from "next/navigation";
 const links = [
   { href: "/admin", label: "Overview", match: (p: string) => p === "/admin" },
   { href: "/admin/users", label: "Users", match: (p: string) => p.startsWith("/admin/users") },
+  {
+    href: "/admin/verification",
+    label: "Verification",
+    match: (p: string) => p.startsWith("/admin/verification"),
+  },
 ] as const;
 
 function linkClass(active: boolean) {

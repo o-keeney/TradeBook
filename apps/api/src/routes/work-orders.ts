@@ -14,6 +14,7 @@ import type { Env } from "../env";
 import type { UserRow } from "../lib/public-user";
 import { requireCustomer } from "../middleware/customer";
 import { requireEmailVerifiedForMutations } from "../middleware/email-verified";
+import { requireSmsVerifiedForMutations } from "../middleware/sms-verified-for-mutations";
 import { requireTradesman } from "../middleware/tradesman";
 import { requireUser } from "../middleware/session";
 import {
@@ -42,6 +43,8 @@ const createWorkOrderSchema = z
     locationAddress: z.string().min(1).max(500),
     locationPostcode: z.string().min(1).max(20),
     dueDate: z.string().datetime().optional(),
+    /** Free-text budget or range (optional). */
+    budgetText: z.string().max(200).optional(),
     assignedTradesmanId: z.string().uuid().optional(),
   })
   .superRefine((data, ctx) => {
@@ -126,6 +129,7 @@ export const workOrderRoutes = new Hono<{
 }>()
   .use(requireUser)
   .use(requireEmailVerifiedForMutations)
+  .use(requireSmsVerifiedForMutations)
   .get("/media/:mediaId/file", async (c) => {
     const mediaId = c.req.param("mediaId");
     const u = c.get("user");
@@ -238,6 +242,10 @@ export const workOrderRoutes = new Hono<{
     const assigned =
       body.submissionType === "direct" ? body.assignedTradesmanId! : null;
 
+    const budgetTrim = body.budgetText?.trim();
+    const budgetText =
+      budgetTrim && budgetTrim.length > 0 ? budgetTrim.slice(0, 200) : null;
+
     await db.insert(workOrders).values({
       id,
       customerId: customer.id,
@@ -251,6 +259,7 @@ export const workOrderRoutes = new Hono<{
       submissionType: body.submissionType,
       status,
       dueDate: body.dueDate ? new Date(body.dueDate) : null,
+      budgetText,
       createdAt: now,
       updatedAt: now,
     });
@@ -822,7 +831,11 @@ export const workOrderRoutes = new Hono<{
       );
     }
 
+    const customerPendingDirect =
+      wo.customerId === u.id && wo.submissionType === "direct" && wo.status === "pending";
+
     const canPost =
+      customerPendingDirect ||
       ((wo.status === "open_bidding" || wo.status === "quotes_submitted") &&
         wo.customerId === u.id) ||
       (["accepted", "in_progress", "awaiting_info"].includes(wo.status) &&
@@ -830,6 +843,20 @@ export const workOrderRoutes = new Hono<{
 
     if (!canPost) {
       return c.json({ error: { code: "forbidden", message: "Forbidden" } }, 403);
+    }
+
+    if (customerPendingDirect) {
+      if (body.updateType !== "media_upload" && body.updateType !== "progress_note") {
+        return c.json(
+          {
+            error: {
+              code: "validation_error",
+              message: "Only progress notes and photo uploads are allowed before the tradesperson responds.",
+            },
+          },
+          400,
+        );
+      }
     }
 
     const updateId = crypto.randomUUID();

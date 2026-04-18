@@ -10,6 +10,7 @@ export function toPublicUser(user: UserRow) {
     emailVerificationLastSentAt: _l,
     passwordResetTokenHash: _prh,
     passwordResetExpiresAt: _pre,
+    phoneVerified: _pv,
     ...rest
   } = user;
   return rest;

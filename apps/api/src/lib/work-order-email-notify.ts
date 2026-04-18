@@ -57,8 +57,11 @@ export async function notifyTradesmanDirectJobAssigned(
   const to = await userEmail(db, wo.assignedTradesmanId);
   if (!to) return;
   const subject = `New direct job: ${wo.title.slice(0, 72)}`;
+  const budgetTrim = wo.budgetText?.trim();
+  const budgetLine = budgetTrim ? `<p><strong>Budget</strong> ${esc(budgetTrim)}</p>` : "";
   const html = `<p>You have been assigned a direct job on Tradebook.</p>
 <p><strong>${esc(wo.title)}</strong></p>
+${budgetLine}
 <p><a href="${jobUrl(env, wo.id)}">View job</a></p>`;
   await sendTransactionalEmail(env, { to, subject, html });
 }

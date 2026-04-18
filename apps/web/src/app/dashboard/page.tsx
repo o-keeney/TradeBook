@@ -6,6 +6,10 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { PageShell } from "@/components/page-shell";
 import type { MeUser } from "@/components/auth-nav";
 import { apiFetch } from "@/lib/api";
+import {
+  meRequiresEmailVerifiedForMutations,
+  meRequiresSmsVerifiedForMutations,
+} from "@/lib/mutation-verification";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -57,8 +61,21 @@ export default function DashboardPage() {
 
   return (
     <PageShell title="Dashboard" maxWidth="wide">
-      {!user.emailVerified ? (
+      {meRequiresEmailVerifiedForMutations(user) && !user.emailVerified ? (
         <EmailVerificationBanner />
+      ) : null}
+      {meRequiresSmsVerifiedForMutations(user) && !user.phoneVerified ? (
+        <div
+          className="mb-6 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-100"
+          role="status"
+        >
+          <p className="font-medium">Phone not marked verified</p>
+          <p className="mt-1 text-sky-900/90 dark:text-sky-100/90">
+            This environment requires a verified phone before you can create or change jobs, messages, portfolio, and
+            similar data. An admin can enable &quot;Phone verified&quot; on your user for testing until SMS is wired
+            up.
+          </p>
+        </div>
       ) : null}
 
       <div className="grid gap-8 md:grid-cols-[minmax(0,15.5rem)_1fr] md:items-start">
@@ -145,6 +162,14 @@ export default function DashboardPage() {
                     : "Post jobs, compare bids, award work, and follow each job in one place."
                 }
                 icon={<IconClipboard />}
+              />
+            </li>
+            <li>
+              <DashboardActionCard
+                href="/messages"
+                title="Messages"
+                description="Inbox for private job threads between you and the other party once a job is assigned."
+                icon={<IconMessages />}
               />
             </li>
           </ul>
@@ -471,6 +496,18 @@ function IconClipboard() {
   return (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+    </svg>
+  );
+}
+
+function IconMessages() {
+  return (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"
+      />
     </svg>
   );
 }

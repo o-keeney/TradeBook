@@ -1,11 +1,13 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { MapboxAddressField } from "@/components/mapbox-address-field";
 import type { MapboxAddressCoords } from "@/components/mapbox-address-field";
 import { apiFetch } from "@/lib/api";
+import { postTradesmanProfilePhoto } from "@/lib/tradesman-profile-photo";
 import { CONSTRUCTION_PROFESSIONS } from "@tradebook/construction-professions";
 
 export type RegisterFormProps = {
@@ -49,6 +51,26 @@ export function RegisterForm({
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<TradesmanFieldKey, string>>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
+  const [profilePhotoPreviewUrl, setProfilePhotoPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!profilePhoto) {
+      setProfilePhotoPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+      return;
+    }
+    const url = URL.createObjectURL(profilePhoto);
+    setProfilePhotoPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return url;
+    });
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [profilePhoto]);
 
   useEffect(() => {
     if (role !== "tradesman" || !address.trim()) return;
@@ -132,11 +154,19 @@ export function RegisterForm({
       });
       const data = (await res.json().catch(() => ({}))) as {
         error?: { message?: string };
+        user?: { id: string };
       };
       if (!res.ok) {
         setFieldErrors({});
         setFormError(data.error?.message ?? "Could not sign up");
         return;
+      }
+      const newUserId = data.user?.id;
+      if (role === "tradesman" && profilePhoto && newUserId) {
+        const up = await postTradesmanProfilePhoto(newUserId, profilePhoto);
+        if (!up.ok) {
+          console.error("Profile photo upload after register failed:", up.message);
+        }
       }
       router.push("/dashboard");
       router.refresh();
@@ -330,6 +360,35 @@ export function RegisterForm({
               </p>
             ) : null}
           </label>
+          <div className="block space-y-1.5">
+            <span className="text-sm font-medium text-neutral-800 dark:text-neutral-200">
+              Profile photo{" "}
+              <span className="font-normal text-neutral-500 dark:text-neutral-400">(optional)</span>
+            </span>
+            <p className="text-xs text-neutral-600 dark:text-neutral-400">
+              JPEG, PNG, WebP, or AVIF. Shown on Find tradesmen after you save your public profile.
+            </p>
+            <input
+              name="profilePhoto"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/avif"
+              className={`${inputClass} py-1.5 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-neutral-200 file:px-2 file:py-1 file:text-xs file:font-medium file:text-neutral-800 dark:file:bg-neutral-800 dark:file:text-neutral-200`}
+              onChange={(e) => {
+                const f = e.target.files?.[0] ?? null;
+                setProfilePhoto(f);
+              }}
+            />
+            {profilePhotoPreviewUrl ? (
+              <Image
+                src={profilePhotoPreviewUrl}
+                alt="Selected profile photo preview"
+                width={112}
+                height={112}
+                unoptimized
+                className="mt-2 rounded-full object-cover ring-2 ring-neutral-200 dark:ring-neutral-700"
+              />
+            ) : null}
+          </div>
         </>
       ) : null}
       <label className="flex items-start gap-2 text-sm">

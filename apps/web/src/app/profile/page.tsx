@@ -7,8 +7,14 @@ import { useCallback, useEffect, useState } from "react";
 import type { MeUser } from "@/components/auth-nav";
 import { MapboxAddressField } from "@/components/mapbox-address-field";
 import type { MapboxAddressCoords } from "@/components/mapbox-address-field";
+import { TradesmanProfileAvatar } from "@/components/tradesman-public-profile-view";
 import { PageShell } from "@/components/page-shell";
 import { apiFetch } from "@/lib/api";
+import {
+  meRequiresEmailVerifiedForMutations,
+  meRequiresSmsVerifiedForMutations,
+} from "@/lib/mutation-verification";
+import { postTradesmanProfilePhoto } from "@/lib/tradesman-profile-photo";
 
 const inputClass =
   "mt-1.5 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-neutral-900 shadow-sm focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100";
@@ -24,6 +30,7 @@ type OwnerTradesmanProfile = {
   contactPhone: string | null;
   contactEmailVisible: boolean;
   contactPhoneVisible: boolean;
+  profilePhotoUrl?: string | null;
 };
 
 function readServiceAddress(rc: Record<string, unknown> | null | undefined): string {
@@ -62,6 +69,9 @@ export default function TradesmanProfilePage() {
 
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoMsg, setPhotoMsg] = useState<string | null>(null);
 
   const removeSpecialty = useCallback((profession: string) => {
     setSpecialties((prev) => prev.filter((p) => p !== profession));
@@ -123,6 +133,7 @@ export default function TradesmanProfilePage() {
         setContactPhone(p.contactPhone?.trim() ?? "");
         setContactEmailVisible(Boolean(p.contactEmailVisible));
         setContactPhoneVisible(Boolean(p.contactPhoneVisible));
+        setProfilePhotoUrl(p.profilePhotoUrl?.trim() ? p.profilePhotoUrl : null);
       } catch {
         if (!cancelled) setLoadErr("Network error.");
       } finally {
@@ -215,9 +226,66 @@ export default function TradesmanProfilePage() {
         </Link>
       </p>
 
-      {!me.emailVerified ? (
+      <div className="mt-6 flex flex-col gap-3 rounded-xl border border-neutral-200 p-4 dark:border-neutral-800 sm:flex-row sm:items-center">
+        <TradesmanProfileAvatar
+          profile={{
+            displayName: `${me.firstName ?? ""} ${me.lastName ?? ""}`.trim() || "You",
+            profilePhotoUrl,
+          }}
+          size="md"
+        />
+        <div className="min-w-0 flex-1 space-y-2">
+          <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200">Profile photo</p>
+          <p className="text-xs text-neutral-600 dark:text-neutral-400">
+            Optional. JPEG, PNG, WebP, or AVIF. You can change this any time; it does not require email
+            verification.
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/avif"
+              disabled={photoUploading}
+              className="max-w-full text-sm text-neutral-800 file:mr-2 file:rounded-md file:border-0 file:bg-neutral-200 file:px-2 file:py-1 file:text-xs file:font-medium dark:text-neutral-200 dark:file:bg-neutral-800"
+              onChange={(ev) => {
+                const f = ev.target.files?.[0];
+                ev.target.value = "";
+                if (!f || !me) return;
+                setPhotoMsg(null);
+                setPhotoUploading(true);
+                void (async () => {
+                  const r = await postTradesmanProfilePhoto(me.id, f);
+                  setPhotoUploading(false);
+                  if (!r.ok) {
+                    setPhotoMsg(r.message);
+                    return;
+                  }
+                  setPhotoMsg("Photo updated.");
+                  if (r.profilePhotoUrl) setProfilePhotoUrl(r.profilePhotoUrl);
+                })();
+              }}
+            />
+            {photoMsg ? (
+              <p
+                className={`text-sm ${photoMsg === "Photo updated." ? "text-emerald-700 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}
+                role={photoMsg === "Photo updated." ? undefined : "alert"}
+              >
+                {photoMsg}
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      {meRequiresEmailVerifiedForMutations(me) && !me.emailVerified ? (
         <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">
-          Verify your email to save profile changes.
+          Verify your email to save profile changes (or ask an admin to relax the email requirement under Admin →
+          Verification).
+        </p>
+      ) : null}
+      {meRequiresSmsVerifiedForMutations(me) && !me.phoneVerified ? (
+        <p className="mt-4 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-950 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-100">
+          Phone verification is required to save profile changes. An admin can mark your account as phone-verified
+          for testing.
         </p>
       ) : null}
 
@@ -383,7 +451,11 @@ export default function TradesmanProfilePage() {
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="submit"
-            disabled={saving || !me.emailVerified}
+            disabled={
+              saving ||
+              (meRequiresEmailVerifiedForMutations(me) && !me.emailVerified) ||
+              (meRequiresSmsVerifiedForMutations(me) && !me.phoneVerified)
+            }
             className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
           >
             {saving ? "Saving…" : "Save profile"}

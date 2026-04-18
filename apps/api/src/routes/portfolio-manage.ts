@@ -6,6 +6,7 @@ import { portfolioProjectImages, portfolioProjects } from "../db/schema";
 import type { Env } from "../env";
 import type { UserRow } from "../lib/public-user";
 import { requireEmailVerifiedForMutations } from "../middleware/email-verified";
+import { requireSmsVerifiedForMutations } from "../middleware/sms-verified-for-mutations";
 import { requireTradesman } from "../middleware/tradesman";
 import { requireUser } from "../middleware/session";
 
@@ -71,6 +72,7 @@ const manage = new Hono<{
   .use(requireUser)
   .use(requireTradesman)
   .use(requireEmailVerifiedForMutations)
+  .use(requireSmsVerifiedForMutations)
   .get("/projects", async (c) => {
     const user = c.get("user");
     const db = createDb(c.env.DB);

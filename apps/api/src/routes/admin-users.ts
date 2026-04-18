@@ -13,6 +13,10 @@ import {
 import type { Env } from "../env";
 import { toOwnerTradesmanProfile } from "../lib/tradesman-profile-view";
 import { toPublicUser, type UserRow } from "../lib/public-user";
+
+function toAdminUserJson(u: UserRow) {
+  return { ...toPublicUser(u), phoneVerified: u.phoneVerified };
+}
 import { requireAdmin } from "../middleware/admin";
 import { requireUser } from "../middleware/session";
 
@@ -69,6 +73,7 @@ const adminPatchUserSchema = z
       .optional(),
     role: z.enum(["customer", "tradesman", "admin"]).optional(),
     emailVerified: z.boolean().optional(),
+    phoneVerified: z.boolean().optional(),
     gdprConsentMarketing: z.boolean().optional(),
     gdprConsentContactDisplay: z.boolean().optional(),
     gdprConsentDataProcessing: z.boolean().optional(),
@@ -185,7 +190,7 @@ export const adminUserRoutes = new Hono<{
       profile = await ensureTradesmanProfile(db, id);
     }
     return c.json({
-      user: toPublicUser(u),
+      user: toAdminUserJson(u),
       tradesmanProfile:
         u.role === "tradesman" && profile ? toOwnerTradesmanProfile(profile) : null,
     });
@@ -254,6 +259,11 @@ export const adminUserRoutes = new Hono<{
     } else if (body.emailVerified === false) {
       set.emailVerified = false;
     }
+    if (body.phoneVerified === true) {
+      set.phoneVerified = true;
+    } else if (body.phoneVerified === false) {
+      set.phoneVerified = false;
+    }
     if (body.gdprConsentMarketing !== undefined) set.gdprConsentMarketing = body.gdprConsentMarketing;
     if (body.gdprConsentContactDisplay !== undefined) {
       set.gdprConsentContactDisplay = body.gdprConsentContactDisplay;
@@ -271,7 +281,7 @@ export const adminUserRoutes = new Hono<{
       const [row] = await db.select().from(users).where(eq(users.id, id));
       const [profile] = await db.select().from(tradesmenProfiles).where(eq(tradesmenProfiles.userId, id));
       return c.json({
-        user: row ? toPublicUser(row) : null,
+        user: row ? toAdminUserJson(row) : null,
         tradesmanProfile:
           row?.role === "tradesman" && profile ? toOwnerTradesmanProfile(profile) : null,
       });
@@ -285,7 +295,7 @@ export const adminUserRoutes = new Hono<{
     const [u] = await db.select().from(users).where(eq(users.id, id));
     const [profile] = await db.select().from(tradesmenProfiles).where(eq(tradesmenProfiles.userId, id));
     return c.json({
-      user: u ? toPublicUser(u) : null,
+      user: u ? toAdminUserJson(u) : null,
       tradesmanProfile:
         u?.role === "tradesman" && profile ? toOwnerTradesmanProfile(profile) : null,
     });
@@ -382,7 +392,7 @@ export const adminUserRoutes = new Hono<{
     const [profile] = await db.select().from(tradesmenProfiles).where(eq(tradesmenProfiles.userId, id));
     const [u] = await db.select().from(users).where(eq(users.id, id));
     return c.json({
-      user: u ? toPublicUser(u) : null,
+      user: u ? toAdminUserJson(u) : null,
       tradesmanProfile: profile ? toOwnerTradesmanProfile(profile) : null,
     });
   });

@@ -10,6 +10,7 @@ import { apiFetch } from "@/lib/api";
 const primaryLinks = [
   { href: "/", label: "Home" },
   { href: "/find-tradesmen", label: "Find tradesmen" },
+  { href: "/messages", label: "Messages", whenSignedIn: true as const },
   { href: "/contact", label: "Contact" },
 ] as const;
 
@@ -74,16 +75,20 @@ export function SiteHeader() {
               Tradebook
             </Link>
             <nav className="flex flex-wrap gap-x-1 gap-y-2 text-sm" aria-label="Primary">
-              {primaryLinks.map(({ href, label }) => (
-                <Link
-                  key={href}
-                  href={href}
-                  className={primaryNavLinkClass(pathname, href)}
-                  aria-current={linkActive(pathname, href) ? "page" : undefined}
-                >
-                  {label}
-                </Link>
-              ))}
+              {primaryLinks.map((item) => {
+                if ("whenSignedIn" in item && item.whenSignedIn && !user) return null;
+                const { href, label } = item;
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={primaryNavLinkClass(pathname, href)}
+                    aria-current={linkActive(pathname, href) ? "page" : undefined}
+                  >
+                    {label}
+                  </Link>
+                );
+              })}
               {user?.role === "tradesman"
                 ? tradesmanNavLinks.map(({ href, label }) => (
                     <Link

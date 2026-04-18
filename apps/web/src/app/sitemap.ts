@@ -30,6 +30,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/profile",
     "/portfolio",
     "/work-orders",
+    "/messages",
     "/verify-email",
   ] as const;
 

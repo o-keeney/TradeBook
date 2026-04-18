@@ -6,6 +6,7 @@ import { users } from "../db/schema";
 import type { Env } from "../env";
 import { canResendVerification, issueEmailVerificationAndSend } from "../lib/email-verification";
 import { toPublicUser, type UserRow } from "../lib/public-user";
+import { getVerificationMutationPolicy } from "../lib/verification-mutation-policy";
 import { requireUser } from "../middleware/session";
 
 const patchMeSchema = z
@@ -20,7 +21,21 @@ export const userRoutes = new Hono<{
   Variables: { user: UserRow };
 }>()
   .use(requireUser)
-  .get("/me", (c) => c.json({ user: toPublicUser(c.get("user")) }))
+  .get("/me", async (c) => {
+    const u = c.get("user");
+    const db = createDb(c.env.DB);
+    const policy = await getVerificationMutationPolicy(db);
+    return c.json({
+      user: {
+        ...toPublicUser(u),
+        phoneVerified: u.phoneVerified,
+        mutationVerification: {
+          requireEmailVerified: policy.requireEmailVerifiedForMutations,
+          requireSmsVerified: policy.requireSmsVerifiedForMutations,
+        },
+      },
+    });
+  })
   .patch("/me", async (c) => {
     let body: z.infer<typeof patchMeSchema>;
     try {
@@ -49,7 +64,18 @@ export const userRoutes = new Hono<{
       .where(eq(users.id, me.id));
 
     const [fresh] = await db.select().from(users).where(eq(users.id, me.id));
-    return c.json({ user: fresh ? toPublicUser(fresh) : null });
+    if (!fresh) return c.json({ user: null });
+    const policy = await getVerificationMutationPolicy(db);
+    return c.json({
+      user: {
+        ...toPublicUser(fresh),
+        phoneVerified: fresh.phoneVerified,
+        mutationVerification: {
+          requireEmailVerified: policy.requireEmailVerifiedForMutations,
+          requireSmsVerified: policy.requireSmsVerifiedForMutations,
+        },
+      },
+    });
   })
   .post("/me/request-email-verification", async (c) => {
     const u = c.get("user");

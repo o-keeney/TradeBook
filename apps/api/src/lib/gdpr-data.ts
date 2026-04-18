@@ -1,9 +1,12 @@
-import { eq, inArray, or } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import type { Db } from "../db/drizzle";
 import {
   bidsQuotes,
   consentAuditLogs,
   contactSubmissions,
+  conversationMessages,
+  conversationReadStates,
+  conversations,
   jobUpdates,
   jobWorkMedia,
   plannerTasks,
@@ -29,6 +32,15 @@ export async function collectPortfolioR2Keys(db: Db, userId: string): Promise<st
  * Job-site photos in R2: anything you uploaded, plus all attachments on jobs where you are
  * customer or assignee (so blobs are removed before those work order rows cascade away).
  */
+export async function collectTradesmanProfilePhotoR2Keys(db: Db, userId: string): Promise<string[]> {
+  const [row] = await db
+    .select({ key: tradesmenProfiles.profilePhotoR2Key })
+    .from(tradesmenProfiles)
+    .where(eq(tradesmenProfiles.userId, userId));
+  const k = row?.key?.trim();
+  return k ? [k] : [];
+}
+
 export async function collectJobWorkMediaR2Keys(db: Db, userId: string): Promise<string[]> {
   const keys = new Set<string>();
 
@@ -114,6 +126,31 @@ export async function buildGdprExportJson(db: Db, user: UserRow): Promise<Record
       ? await db.select().from(plannerTasks).where(inArray(plannerTasks.workOrderId, orderIds))
       : [];
 
+  const jobConversations =
+    orderIds.length > 0
+      ? await db.select().from(conversations).where(inArray(conversations.workOrderId, orderIds))
+      : [];
+  const jobConversationIds = jobConversations.map((c) => c.id);
+  const jobConversationMessages =
+    jobConversationIds.length > 0
+      ? await db
+          .select()
+          .from(conversationMessages)
+          .where(inArray(conversationMessages.conversationId, jobConversationIds))
+      : [];
+  const jobConversationReadStates =
+    jobConversationIds.length > 0
+      ? await db
+          .select()
+          .from(conversationReadStates)
+          .where(
+            and(
+              eq(conversationReadStates.userId, uid),
+              inArray(conversationReadStates.conversationId, jobConversationIds),
+            ),
+          )
+      : [];
+
   const contactRows = await db
     .select()
     .from(contactSubmissions)
@@ -141,6 +178,9 @@ export async function buildGdprExportJson(db: Db, user: UserRow): Promise<Record
     jobTimelineUpdates: timeline,
     jobWorkMedia: jobMedia,
     plannerTasks: plannerTaskRows,
+    jobConversations,
+    jobConversationMessages,
+    jobConversationReadStates,
     contactFormSubmissionsMatchedByEmail: contactRows,
     consentAuditLog: consentRows,
     reviewsReceived,

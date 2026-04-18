@@ -9,6 +9,7 @@ import {
   type PublicReviewRow,
   type PublicTradesmanProfileCard,
 } from "@/components/tradesman-public-profile-view";
+import { RequestWorkOrderToTradesman } from "@/components/request-work-order-to-tradesman";
 import { apiFetch } from "@/lib/api";
 
 export function TradesmanPublicProfileRoute({ userId }: { userId: string }) {
@@ -152,6 +153,12 @@ export function TradesmanPublicProfileRoute({ userId }: { userId: string }) {
         reviews={reviews}
         reviewsLoading={reviewsLoading}
         reviewsFailed={reviewsFailed}
+      />
+      <RequestWorkOrderToTradesman
+        tradesmanUserId={profile.id}
+        tradesmanDisplayName={profile.displayName}
+        suggestedTradeCategories={profile.tradeCategories}
+        tradesmanAvailable={profile.isAvailable}
       />
     </PageShell>
   );

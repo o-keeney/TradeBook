@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { formatBudgetDisplay } from "@/lib/format-budget";
 
 export type PublicTradesmanProfileCard = {
@@ -16,8 +16,84 @@ export type PublicTradesmanProfileCard = {
   avgRating: number | null;
   reviewCount: number;
   subscriptionTier: string | null;
+  profilePhotoUrl?: string | null;
   contact?: { email?: string; phone?: string };
 };
+
+type AvatarProfile = Pick<PublicTradesmanProfileCard, "displayName" | "profilePhotoUrl">;
+
+const avatarSizePx = { sm: 48, md: 72, lg: 96 } as const;
+
+/** Neutral silhouette when no photo or when the image URL fails to load. */
+function TradesmanAvatarPlaceholder({
+  displayName,
+  sizePx,
+}: {
+  displayName: string;
+  sizePx: number;
+}) {
+  const icon = Math.max(18, Math.round(sizePx * 0.44));
+  return (
+    <div
+      className="flex shrink-0 items-center justify-center rounded-full bg-gradient-to-b from-neutral-100 to-neutral-200 text-neutral-500 ring-2 ring-neutral-200 dark:from-neutral-800 dark:to-neutral-900 dark:text-neutral-400 dark:ring-neutral-700"
+      style={{ width: sizePx, height: sizePx }}
+      role="img"
+      aria-label={displayName.trim() ? `${displayName} — default profile image` : "Default profile image"}
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+        strokeWidth={1.35}
+        stroke="currentColor"
+        className="opacity-80"
+        width={icon}
+        height={icon}
+        aria-hidden
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0115 0"
+        />
+      </svg>
+    </div>
+  );
+}
+
+/** Rounded photo, or default placeholder; used on listings and public profile. */
+export function TradesmanProfileAvatar({
+  profile,
+  size = "md",
+}: {
+  profile: AvatarProfile;
+  size?: keyof typeof avatarSizePx;
+}) {
+  const px = avatarSizePx[size];
+  const url = profile.profilePhotoUrl?.trim() ?? "";
+  const [photoFailed, setPhotoFailed] = useState(false);
+
+  useEffect(() => {
+    setPhotoFailed(false);
+  }, [url]);
+
+  if (!url || photoFailed) {
+    return <TradesmanAvatarPlaceholder displayName={profile.displayName} sizePx={px} />;
+  }
+
+  return (
+    <Image
+      src={url}
+      alt=""
+      width={px}
+      height={px}
+      className="shrink-0 rounded-full object-cover ring-2 ring-neutral-200 dark:ring-neutral-700"
+      style={{ width: px, height: px }}
+      unoptimized
+      onError={() => setPhotoFailed(true)}
+    />
+  );
+}
 
 export type PublicReviewRow = {
   id: string;
@@ -37,6 +113,105 @@ export type PortfolioProjectPublic = {
   budgetText: string | null;
   images: PortfolioImage[];
 };
+
+function portfolioCondensedMeta(proj: PortfolioProjectPublic): string {
+  const parts: string[] = [];
+  if (proj.projectDate?.trim()) parts.push(proj.projectDate.trim());
+  const n = proj.images.length;
+  parts.push(n === 0 ? "No photos" : n === 1 ? "1 photo" : `${n} photos`);
+  return parts.join(" · ");
+}
+
+function PortfolioChevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      aria-hidden
+      className={`h-5 w-5 shrink-0 text-neutral-500 transition-transform dark:text-neutral-400 ${open ? "rotate-180" : ""}`}
+    >
+      <path
+        fillRule="evenodd"
+        d="M5.23 7.21a.75.75 0 011.06.02L10 11.084l3.71-3.85a.75.75 0 111.08 1.04l-4.25 4.4a.75.75 0 01-1.08 0l-4.25-4.4a.75.75 0 01.02-1.06z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
+/** Full project body (metadata, description, gallery) — shown when a row is expanded. */
+function PublicPortfolioProjectDetail({
+  proj,
+  panelId,
+}: {
+  proj: PortfolioProjectPublic;
+  panelId: string;
+}) {
+  return (
+    <div
+      id={panelId}
+      role="region"
+      aria-labelledby={`portfolio-trigger-${proj.id}`}
+      className="border-t border-neutral-200 px-3 pb-4 pt-3 dark:border-neutral-700 sm:px-4"
+    >
+      {proj.projectDate || proj.durationText?.trim() || proj.budgetText?.trim() ? (
+        <dl className="space-y-1.5 text-xs">
+          {proj.projectDate ? (
+            <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+              <dt className="shrink-0 font-medium text-neutral-700 dark:text-neutral-300">Date</dt>
+              <dd className="min-w-0 text-neutral-600 dark:text-neutral-400">{proj.projectDate}</dd>
+            </div>
+          ) : null}
+          {proj.durationText?.trim() ? (
+            <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+              <dt className="shrink-0 font-medium text-neutral-700 dark:text-neutral-300">Duration</dt>
+              <dd className="min-w-0 text-neutral-600 dark:text-neutral-400">{proj.durationText.trim()}</dd>
+            </div>
+          ) : null}
+          {proj.budgetText?.trim() ? (
+            <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+              <dt className="shrink-0 font-medium text-neutral-700 dark:text-neutral-300">Budget</dt>
+              <dd className="min-w-0 text-neutral-600 dark:text-neutral-400">
+                {formatBudgetDisplay(proj.budgetText)}
+              </dd>
+            </div>
+          ) : null}
+        </dl>
+      ) : null}
+      {proj.description?.trim() ? (
+        <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-neutral-700 dark:text-neutral-300">
+          {proj.description}
+        </p>
+      ) : null}
+      {proj.images.length > 0 ? (
+        <ul className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {proj.images.map((img) => (
+            <li
+              key={img.id}
+              className="overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-950"
+            >
+              <Image
+                src={img.url}
+                alt={img.caption?.trim() ? img.caption : `${proj.title} — portfolio photo`}
+                width={800}
+                height={800}
+                sizes="(max-width: 640px) 50vw, 280px"
+                className="aspect-square w-full object-cover"
+                loading="lazy"
+              />
+              {img.caption?.trim() ? (
+                <p className="border-t border-neutral-100 px-2 py-1 text-[11px] text-neutral-600 dark:border-neutral-800 dark:text-neutral-400">
+                  {img.caption.trim()}
+                </p>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
 
 function parsePortfolioPayload(raw: unknown): { projects: PortfolioProjectPublic[] } | null {
   if (!raw || typeof raw !== "object") return null;
@@ -136,9 +311,18 @@ export function TradesmanPublicProfileView({
   reviewsFailed,
 }: TradesmanPublicProfileViewProps) {
   const portfolio = useMemo(() => parsePortfolioPayload(portfolioRaw), [portfolioRaw]);
+  const [expandedPortfolioId, setExpandedPortfolioId] = useState<string | null>(null);
+  const portfolioKey = portfolio?.projects.map((p) => p.id).join("|") ?? "";
+
+  useEffect(() => {
+    setExpandedPortfolioId(null);
+  }, [profile.id, portfolioKey]);
 
   return (
     <div className="space-y-0 text-neutral-900 dark:text-neutral-100">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+        <TradesmanProfileAvatar profile={profile} size="lg" />
+        <div className="min-w-0 flex-1 space-y-3">
       <div className="flex flex-wrap gap-2">
         {profile.tradeCategories.length ? (
           profile.tradeCategories.map((t) => (
@@ -154,7 +338,7 @@ export function TradesmanPublicProfileView({
         )}
       </div>
 
-      <p className="mt-3 text-sm font-medium">{formatRatingLine(profile.avgRating, profile.reviewCount)}</p>
+      <p className="text-sm font-medium">{formatRatingLine(profile.avgRating, profile.reviewCount)}</p>
       <p className="mt-1 text-xs text-neutral-500">
         {profile.isAvailable ? "Available" : "Unavailable"} ·{" "}
         {profile.verificationStatus === "verified"
@@ -190,13 +374,15 @@ export function TradesmanPublicProfileView({
       ) : null}
 
       {profile.bio ? (
-        <section className="mt-5">
+        <section className="mt-2 sm:mt-3">
           <h2 className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">About</h2>
           <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-neutral-700 dark:text-neutral-300">
             {profile.bio}
           </p>
         </section>
       ) : null}
+        </div>
+      </div>
 
       {profile.reviewCount > 0 ? (
         <section className="mt-6 border-t border-neutral-200 pt-5 dark:border-neutral-800">
@@ -231,75 +417,63 @@ export function TradesmanPublicProfileView({
 
       <section className="mt-6 border-t border-neutral-200 pt-5 dark:border-neutral-800">
         <h2 className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">Portfolio</h2>
+        <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+          Tap a project to view photos and full details.
+        </p>
         {portfolioLoading ? <p className="mt-2 text-sm text-neutral-500">Loading portfolio…</p> : null}
         {portfolioFailed ? <p className="mt-2 text-sm text-red-600 dark:text-red-400">Could not load portfolio.</p> : null}
         {portfolio && portfolio.projects.length === 0 ? (
           <p className="mt-2 text-sm text-neutral-500">No public projects yet.</p>
         ) : null}
         {portfolio && portfolio.projects.length > 0 ? (
-          <ul className="mt-4 space-y-8">
-            {portfolio.projects.map((proj: PortfolioProjectPublic) => (
-              <li
-                key={proj.id}
-                className="rounded-xl border border-neutral-200 bg-neutral-50/80 p-4 dark:border-neutral-800 dark:bg-neutral-900/40"
-              >
-                <h3 className="font-semibold text-neutral-900 dark:text-neutral-100">{proj.title}</h3>
-                {proj.projectDate || proj.durationText?.trim() || proj.budgetText?.trim() ? (
-                  <dl className="mt-2 space-y-1.5 text-xs">
-                    {proj.projectDate ? (
-                      <div className="flex flex-wrap gap-x-2 gap-y-0.5">
-                        <dt className="shrink-0 font-medium text-neutral-700 dark:text-neutral-300">Date</dt>
-                        <dd className="min-w-0 text-neutral-600 dark:text-neutral-400">{proj.projectDate}</dd>
-                      </div>
-                    ) : null}
-                    {proj.durationText?.trim() ? (
-                      <div className="flex flex-wrap gap-x-2 gap-y-0.5">
-                        <dt className="shrink-0 font-medium text-neutral-700 dark:text-neutral-300">Duration</dt>
-                        <dd className="min-w-0 text-neutral-600 dark:text-neutral-400">{proj.durationText.trim()}</dd>
-                      </div>
-                    ) : null}
-                    {proj.budgetText?.trim() ? (
-                      <div className="flex flex-wrap gap-x-2 gap-y-0.5">
-                        <dt className="shrink-0 font-medium text-neutral-700 dark:text-neutral-300">Budget</dt>
-                        <dd className="min-w-0 text-neutral-600 dark:text-neutral-400">
-                          {formatBudgetDisplay(proj.budgetText)}
-                        </dd>
-                      </div>
-                    ) : null}
-                  </dl>
-                ) : null}
-                {proj.description?.trim() ? (
-                  <p className="mt-2 whitespace-pre-wrap text-sm text-neutral-700 dark:text-neutral-300">
-                    {proj.description}
-                  </p>
-                ) : null}
-                {proj.images.length > 0 ? (
-                  <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                    {proj.images.map((img) => (
-                        <li
-                        key={img.id}
-                        className="overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-950"
-                      >
+          <ul className="mt-3 space-y-2">
+            {portfolio.projects.map((proj: PortfolioProjectPublic) => {
+              const open = expandedPortfolioId === proj.id;
+              const thumb = proj.images[0];
+              return (
+                <li
+                  key={proj.id}
+                  className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50/80 dark:border-neutral-800 dark:bg-neutral-900/40"
+                >
+                  <button
+                    type="button"
+                    id={`portfolio-trigger-${proj.id}`}
+                    aria-expanded={open}
+                    aria-controls={`portfolio-panel-${proj.id}`}
+                    onClick={() => setExpandedPortfolioId(open ? null : proj.id)}
+                    className="flex w-full cursor-pointer items-center gap-3 p-3 text-left transition hover:bg-neutral-100/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 dark:hover:bg-neutral-800/60 dark:focus-visible:ring-neutral-500 sm:gap-4 sm:p-3.5"
+                  >
+                    <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-neutral-200 bg-neutral-200 dark:border-neutral-600 dark:bg-neutral-800 sm:h-16 sm:w-16">
+                      {thumb ? (
                         <Image
-                          src={img.url}
-                          alt={img.caption?.trim() ? img.caption : `${proj.title} — portfolio photo`}
-                          width={800}
-                          height={800}
-                          sizes="(max-width: 640px) 50vw, 280px"
-                          className="aspect-square w-full object-cover"
+                          src={thumb.url}
+                          alt=""
+                          width={128}
+                          height={128}
+                          className="h-full w-full object-cover"
+                          sizes="64px"
                           loading="lazy"
                         />
-                        {img.caption?.trim() ? (
-                          <p className="border-t border-neutral-100 px-2 py-1 text-[11px] text-neutral-600 dark:border-neutral-800 dark:text-neutral-400">
-                            {img.caption.trim()}
-                          </p>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </li>
-            ))}
+                      ) : (
+                        <span className="flex h-full w-full items-center justify-center text-[10px] font-medium text-neutral-500 dark:text-neutral-400">
+                          No photo
+                        </span>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{proj.title}</h3>
+                      <p className="mt-0.5 text-xs text-neutral-600 dark:text-neutral-400">
+                        {portfolioCondensedMeta(proj)}
+                      </p>
+                    </div>
+                    <PortfolioChevron open={open} />
+                  </button>
+                  {open ? (
+                    <PublicPortfolioProjectDetail proj={proj} panelId={`portfolio-panel-${proj.id}`} />
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         ) : null}
       </section>

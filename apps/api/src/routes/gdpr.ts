@@ -8,6 +8,7 @@ import {
   buildGdprExportJson,
   collectJobWorkMediaR2Keys,
   collectPortfolioR2Keys,
+  collectTradesmanProfilePhotoR2Keys,
   deleteUserById,
 } from "../lib/gdpr-data";
 import type { UserRow } from "../lib/public-user";
@@ -53,6 +54,7 @@ async function handleErase(
     ...new Set([
       ...(await collectPortfolioR2Keys(db, u.id)),
       ...(await collectJobWorkMediaR2Keys(db, u.id)),
+      ...(await collectTradesmanProfilePhotoR2Keys(db, u.id)),
     ]),
   ];
   const bucket = c.env.MEDIA_BUCKET;

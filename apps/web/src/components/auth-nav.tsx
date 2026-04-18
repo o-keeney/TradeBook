@@ -12,6 +12,12 @@ export type MeUser = {
   emailVerified?: boolean;
   firstName?: string | null;
   lastName?: string | null;
+  /** Present on GET/PATCH `/api/users/me` only. */
+  phoneVerified?: boolean;
+  mutationVerification?: {
+    requireEmailVerified: boolean;
+    requireSmsVerified: boolean;
+  };
 };
 
 export type AuthNavProps = {

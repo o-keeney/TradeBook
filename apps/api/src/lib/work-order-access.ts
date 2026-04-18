@@ -33,6 +33,13 @@ export function canTransitionStatus(from: string, to: string): boolean {
 export function canUploadJobMedia(user: UserRow, wo: WorkOrderRow): boolean {
   if (
     wo.customerId === user.id &&
+    wo.submissionType === "direct" &&
+    wo.status === "pending"
+  ) {
+    return true;
+  }
+  if (
+    wo.customerId === user.id &&
     (wo.status === "open_bidding" || wo.status === "quotes_submitted")
   ) {
     return true;
@@ -53,4 +60,22 @@ export function canMutatePlanner(user: UserRow, wo: WorkOrderRow): boolean {
     wo.assignedTradesmanId === user.id &&
     ["accepted", "in_progress", "awaiting_info"].includes(wo.status)
   );
+}
+
+const MESSAGING_CLOSED_STATUSES = [
+  "completed",
+  "cancelled",
+  "declined",
+  "customer_rejected",
+] as const;
+
+/** Customer or assignee may open the job thread (including archived jobs). */
+export function canReadJobConversation(user: UserRow, wo: WorkOrderRow): boolean {
+  return isJobParticipant(user, wo) && wo.assignedTradesmanId != null;
+}
+
+/** New chat messages allowed while the job is open to participants and not terminal. */
+export function canPostJobMessage(user: UserRow, wo: WorkOrderRow): boolean {
+  if (!isJobParticipant(user, wo) || !wo.assignedTradesmanId) return false;
+  return !MESSAGING_CLOSED_STATUSES.includes(wo.status as (typeof MESSAGING_CLOSED_STATUSES)[number]);
 }

@@ -14,6 +14,7 @@ type MeUser = {
   lastName: string | null;
   phone: string | null;
   emailVerified: boolean;
+  phoneVerified?: boolean;
   gdprConsentDataProcessing: boolean;
   gdprConsentMarketing: boolean;
   gdprConsentContactDisplay: boolean;
@@ -51,6 +52,7 @@ export default function AdminUserEditPage() {
   const [phone, setPhone] = useState("");
   const [role, setRole] = useState<string>("customer");
   const [emailVerified, setEmailVerified] = useState(false);
+  const [phoneVerified, setPhoneVerified] = useState(false);
   const [gdprData, setGdprData] = useState(true);
   const [gdprMarketing, setGdprMarketing] = useState(false);
   const [gdprContact, setGdprContact] = useState(false);
@@ -103,6 +105,7 @@ export default function AdminUserEditPage() {
     setPhone(u.phone ?? "");
     setRole(u.role);
     setEmailVerified(u.emailVerified);
+    setPhoneVerified(Boolean(u.phoneVerified));
     setGdprData(u.gdprConsentDataProcessing);
     setGdprMarketing(u.gdprConsentMarketing);
     setGdprContact(u.gdprConsentContactDisplay);
@@ -411,6 +414,10 @@ export default function AdminUserEditPage() {
         <label className="flex items-center gap-2 text-sm text-neutral-800 dark:text-neutral-200">
           <input type="checkbox" checked={emailVerified} onChange={(e) => setEmailVerified(e.target.checked)} />
           Email verified
+        </label>
+        <label className="flex items-center gap-2 text-sm text-neutral-800 dark:text-neutral-200">
+          <input type="checkbox" checked={phoneVerified} onChange={(e) => setPhoneVerified(e.target.checked)} />
+          Phone verified (for SMS gate testing; SMS not integrated yet)
         </label>
         <label className="flex items-center gap-2 text-sm text-neutral-800 dark:text-neutral-200">
           <input type="checkbox" checked={accountActive} onChange={(e) => setAccountActive(e.target.checked)} />

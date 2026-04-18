@@ -9,6 +9,8 @@ import { csrfProtectionMiddleware, sessionCsrfBootstrapMiddleware } from "./midd
 import { requestLogMiddleware } from "./middleware/request-log";
 import { adminRoutes } from "./routes/admin";
 import { authRoutes } from "./routes/auth";
+import { handleConversationWebSocket } from "./routes/conversation-ws";
+import { conversationRoutes } from "./routes/conversations";
 import { gdprRoutes } from "./routes/gdpr";
 import { portfolioManageRoutes } from "./routes/portfolio-manage";
 import { publicPortfolioRoutes } from "./routes/portfolio-public";
@@ -76,5 +78,9 @@ app.route("/api/admin", adminRoutes);
 app.route("/api/portfolio", portfolioManageRoutes);
 app.route("/api/work-orders", workOrderRoutes);
 app.route("/api/reviews", reviewRoutes);
+/** WebSocket upgrade (ticket auth); must stay on the main app so it is not behind `requireUser` cookie-only middleware. */
+app.get("/api/conversations/ws", handleConversationWebSocket);
+app.route("/api/conversations", conversationRoutes);
 
+export { ConversationRoom } from "./durable-objects/conversation-room";
 export default app;

@@ -9,6 +9,7 @@ import type { UserRow } from "../lib/public-user";
 import { canViewWorkOrder } from "../lib/work-order-access";
 import { requireCustomer } from "../middleware/customer";
 import { requireEmailVerifiedForMutations } from "../middleware/email-verified";
+import { requireSmsVerifiedForMutations } from "../middleware/sms-verified-for-mutations";
 import { requireUser } from "../middleware/session";
 
 const postReviewSchema = z.object({
@@ -67,7 +68,12 @@ export const reviewRoutes = new Hono<{
       tradesmanId: existing.tradesmanId,
     });
   })
-  .post("/", requireEmailVerifiedForMutations, requireCustomer, async (c) => {
+  .post(
+    "/",
+    requireEmailVerifiedForMutations,
+    requireSmsVerifiedForMutations,
+    requireCustomer,
+    async (c) => {
     let body: z.infer<typeof postReviewSchema>;
     try {
       body = postReviewSchema.parse(await c.req.json());
@@ -151,4 +157,5 @@ export const reviewRoutes = new Hono<{
       },
       201,
     );
-  });
+  },
+  );

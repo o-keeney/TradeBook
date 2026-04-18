@@ -57,6 +57,7 @@ Uncomment `[[kv_namespaces]]` in `wrangler.toml` and set `binding = "RATE_LIMIT_
 | `BUDGETSMS_API_KEY` or similar (future) | `wrangler secret put …` | `.dev.vars` only |
 | `MAPBOX_*` on the **Worker** (future server geocode) | Secret if it’s a private token | `.dev.vars` |
 | `CORS_ORIGINS`, `APP_ORIGIN`, `ENVIRONMENT` | `[vars]` / dashboard (non-secret) | `[vars]` in `wrangler.toml` |
+| `WEBSOCKET_TICKET_SECRET` | `wrangler secret put WEBSOCKET_TICKET_SECRET` (recommended for prod) | Defaults in `[vars]` for local; override in `.dev.vars` if needed |
 
 **Web app (`apps/web`):** Mapbox and API URL use `NEXT_PUBLIC_*` — those tokens are **exposed to the browser** by design (Mapbox GL). Do not put server-only secrets in `NEXT_PUBLIC_*`. Use Vercel/Cloudflare **Pages** env UI or `.env.local` (gitignored) for local Next.js.
 
@@ -122,6 +123,15 @@ Workflow file: `.github/workflows/deploy-api.yml`.
 | `db:generate` | Drizzle → SQL migrations |
 | `db:migrate:local` / `db:migrate:remote` | Apply migrations to D1 |
 | `create-admin` | Interactive admin user (local) |
+
+## Messaging realtime (Durable Objects + WebSocket)
+
+The Worker defines a **`ConversationRoom`** Durable Object (`CONVERSATION_ROOM` binding) with one instance per conversation id (`idFromName(conversationId)`). After a row is inserted via `POST /api/conversations/:id/messages`, the API notifies that object, which fans out JSON events to connected WebSockets.
+
+- **`POST /api/conversations/:id/ws-ticket`** (session cookie + CSRF + email verified): returns a short-lived signed `wsUrl` for **`GET /api/conversations/ws?ticket=…`** (WebSocket upgrade). Tickets are HMAC-signed with `WEBSOCKET_TICKET_SECRET`.
+- **Why not same-origin only?** Next.js `rewrites()` do not upgrade WebSockets to the API. The browser therefore opens the socket on the **API origin** from `wsUrl` (built from the ticket request URL), while normal REST traffic can stay same-origin via the rewrite.
+
+First deploy after pulling this: run `wrangler deploy` so the **Durable Object migration** in `wrangler.toml` is applied. Local dev uses the bundled migration automatically.
 
 ## CORS and web origin
 

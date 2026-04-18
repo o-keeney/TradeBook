@@ -9,9 +9,38 @@ import {
   toOwnerTradesmanProfile,
   toPublicTradesmanProfile,
 } from "../lib/tradesman-profile-view";
-import { requireEmailVerified } from "../middleware/email-verified";
+import { requireEmailVerifiedForMutations } from "../middleware/email-verified";
+import { requireSmsVerifiedForMutations } from "../middleware/sms-verified-for-mutations";
 import { requireTradesman } from "../middleware/tradesman";
 import { requireUser } from "../middleware/session";
+
+const MAX_PROFILE_PHOTO_BYTES = 5 * 1024 * 1024;
+const ALLOWED_PROFILE_PHOTO_MIME = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/avif",
+]);
+
+function sanitizeProfilePhotoFilename(name: string): string {
+  const base = name.split(/[/\\]/).pop() ?? "image";
+  return base.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 80) || "image";
+}
+
+function profilePhotoExtensionFromMime(mime: string): string {
+  switch (mime) {
+    case "image/jpeg":
+      return ".jpg";
+    case "image/png":
+      return ".png";
+    case "image/webp":
+      return ".webp";
+    case "image/avif":
+      return ".avif";
+    default:
+      return "";
+  }
+}
 
 const regionConfigSchema = z
   .object({
@@ -157,9 +186,7 @@ async function queryTradesmenDiscovery(
     .limit(f.limit);
 }
 
-function discoveryResponseJson(
-  rows: Awaited<ReturnType<typeof queryTradesmenDiscovery>>,
-) {
+function discoveryResponseJson(rows: Awaited<ReturnType<typeof queryTradesmenDiscovery>>) {
   return {
     results: rows.map(({ user, profile }) => ({
       profile: toPublicTradesmanProfile(user, profile),
@@ -180,6 +207,44 @@ export const tradesmenRoutes = new Hono<{
     const db = createDb(c.env.DB);
     const rows = await queryTradesmenDiscovery(db, parseDiscoveryQuery(c));
     return c.json(discoveryResponseJson(rows));
+  })
+  .get("/:id/profile-photo/file", async (c) => {
+    const id = c.req.param("id");
+    const bucket = c.env.MEDIA_BUCKET;
+    if (!bucket) {
+      return c.json(
+        { error: { code: "service_unavailable", message: "Media storage not configured" } },
+        503,
+      );
+    }
+
+    const db = createDb(c.env.DB);
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(and(eq(users.id, id), isNull(users.deletedAt)));
+    if (!user || user.role !== "tradesman") {
+      return c.json({ error: { code: "not_found", message: "Not found" } }, 404);
+    }
+
+    const [profile] = await db.select().from(tradesmenProfiles).where(eq(tradesmenProfiles.userId, id));
+    const r2Key = profile?.profilePhotoR2Key?.trim();
+    if (!r2Key) {
+      return c.json({ error: { code: "not_found", message: "No profile photo" } }, 404);
+    }
+
+    const obj = await bucket.get(r2Key);
+    if (!obj) {
+      return c.json({ error: { code: "not_found", message: "Object missing" } }, 404);
+    }
+
+    const ct = obj.httpMetadata?.contentType ?? profile?.profilePhotoMimeType ?? "image/jpeg";
+    return new Response(obj.body, {
+      headers: {
+        "Content-Type": ct,
+        "Cache-Control": "public, max-age=86400",
+      },
+    });
   })
   .get("/:id/reviews", async (c) => {
     const id = c.req.param("id");
@@ -233,6 +298,93 @@ export const tradesmenRoutes = new Hono<{
     const profile = await ensureTradesmanProfile(db, id);
     return c.json({ profile: toOwnerTradesmanProfile(profile) });
   })
+  /** No email/SMS gates: allows first photo upload right after register before verification. */
+  .post("/:id/profile-photo", requireUser, requireTradesman, async (c) => {
+    const id = c.req.param("id");
+    const u = c.get("user");
+    if (u.id !== id) {
+      return c.json({ error: { code: "forbidden", message: "You can only update your own profile photo" } }, 403);
+    }
+
+    const bucket = c.env.MEDIA_BUCKET;
+    if (!bucket) {
+      return c.json(
+        { error: { code: "service_unavailable", message: "Media storage not configured" } },
+        503,
+      );
+    }
+
+    const db = createDb(c.env.DB);
+    await ensureTradesmanProfile(db, id);
+
+    const form = await c.req.formData();
+    const raw = form.get("file");
+    if (raw === null || typeof raw === "string") {
+      return c.json(
+        { error: { code: "validation_error", message: 'Expected multipart field "file"' } },
+        400,
+      );
+    }
+    const file = raw as Blob & { name?: string };
+
+    if (!ALLOWED_PROFILE_PHOTO_MIME.has(file.type)) {
+      return c.json(
+        {
+          error: {
+            code: "validation_error",
+            message: `Unsupported type. Use: ${[...ALLOWED_PROFILE_PHOTO_MIME].join(", ")}`,
+          },
+        },
+        400,
+      );
+    }
+
+    if (file.size > MAX_PROFILE_PHOTO_BYTES) {
+      return c.json(
+        { error: { code: "validation_error", message: "File exceeds 5MB limit" } },
+        400,
+      );
+    }
+
+    const [existing] = await db.select().from(tradesmenProfiles).where(eq(tradesmenProfiles.userId, id));
+    const oldKey = existing?.profilePhotoR2Key?.trim();
+
+    const mediaId = crypto.randomUUID();
+    const ext = profilePhotoExtensionFromMime(file.type);
+    const safeName = sanitizeProfilePhotoFilename(typeof file.name === "string" ? file.name : "photo");
+    const r2Key = `tradesman-profile/${id}/${mediaId}-${safeName}${ext}`;
+
+    const buf = await file.arrayBuffer();
+    await bucket.put(r2Key, buf, {
+      httpMetadata: { contentType: file.type },
+    });
+
+    if (oldKey && oldKey !== r2Key) {
+      try {
+        await bucket.delete(oldKey);
+      } catch {
+        /* ignore */
+      }
+    }
+
+    const now = new Date();
+    await db
+      .update(tradesmenProfiles)
+      .set({
+        profilePhotoR2Key: r2Key,
+        profilePhotoMimeType: file.type,
+        updatedAt: now,
+      })
+      .where(eq(tradesmenProfiles.userId, id));
+
+    const [profile] = await db.select().from(tradesmenProfiles).where(eq(tradesmenProfiles.userId, id));
+    return c.json(
+      {
+        profile: profile ? toOwnerTradesmanProfile(profile) : null,
+      },
+      201,
+    );
+  })
   .get("/:id", async (c) => {
     const id = c.req.param("id");
     const db = createDb(c.env.DB);
@@ -252,7 +404,13 @@ export const tradesmenRoutes = new Hono<{
       profile: toPublicTradesmanProfile(user, profile),
     });
   })
-  .put("/:id/profile", requireUser, requireTradesman, requireEmailVerified, async (c) => {
+  .put(
+    "/:id/profile",
+    requireUser,
+    requireTradesman,
+    requireEmailVerifiedForMutations,
+    requireSmsVerifiedForMutations,
+    async (c) => {
     const id = c.req.param("id");
     const sessionUser = c.get("user");
     if (id !== sessionUser.id) {
@@ -322,4 +480,5 @@ export const tradesmenRoutes = new Hono<{
     }
 
     return c.json({ profile: toOwnerTradesmanProfile(profile) });
-  });
+  },
+  );
