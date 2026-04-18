@@ -11,5 +11,8 @@ dist
 *.pem
 .DS_Store
 coverage
+playwright-report
+test-results
+apps/web/playwright/.cache
 *.tsbuildinfo
 apps/api/scripts/last-admin-insert.sql

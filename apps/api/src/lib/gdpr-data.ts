@@ -2,10 +2,14 @@ import { eq, inArray, or } from "drizzle-orm";
 import type { Db } from "../db/drizzle";
 import {
   bidsQuotes,
+  consentAuditLogs,
   contactSubmissions,
   jobUpdates,
+  jobWorkMedia,
+  plannerTasks,
   portfolioProjectImages,
   portfolioProjects,
+  reviews,
   tradesmenProfiles,
   users,
   workOrders,
@@ -19,6 +23,39 @@ export async function collectPortfolioR2Keys(db: Db, userId: string): Promise<st
     .innerJoin(portfolioProjects, eq(portfolioProjectImages.projectId, portfolioProjects.id))
     .where(eq(portfolioProjects.userId, userId));
   return [...new Set(rows.map((r) => r.key))];
+}
+
+/**
+ * Job-site photos in R2: anything you uploaded, plus all attachments on jobs where you are
+ * customer or assignee (so blobs are removed before those work order rows cascade away).
+ */
+export async function collectJobWorkMediaR2Keys(db: Db, userId: string): Promise<string[]> {
+  const keys = new Set<string>();
+
+  const asUploader = await db
+    .select({ key: jobWorkMedia.r2Key })
+    .from(jobWorkMedia)
+    .where(eq(jobWorkMedia.uploadedByUserId, userId));
+  for (const r of asUploader) keys.add(r.key);
+
+  const myOrderIds = (
+    await db
+      .select({ id: workOrders.id })
+      .from(workOrders)
+      .where(
+        or(eq(workOrders.customerId, userId), eq(workOrders.assignedTradesmanId, userId)),
+      )
+  ).map((r) => r.id);
+
+  if (myOrderIds.length > 0) {
+    const onMyJobs = await db
+      .select({ key: jobWorkMedia.r2Key })
+      .from(jobWorkMedia)
+      .where(inArray(jobWorkMedia.workOrderId, myOrderIds));
+    for (const r of onMyJobs) keys.add(r.key);
+  }
+
+  return [...keys];
 }
 
 function userForExport(user: UserRow) {
@@ -67,10 +104,28 @@ export async function buildGdprExportJson(db: Db, user: UserRow): Promise<Record
       ? await db.select().from(jobUpdates).where(inArray(jobUpdates.workOrderId, orderIds))
       : [];
 
+  const jobMedia =
+    orderIds.length > 0
+      ? await db.select().from(jobWorkMedia).where(inArray(jobWorkMedia.workOrderId, orderIds))
+      : [];
+
+  const plannerTaskRows =
+    orderIds.length > 0
+      ? await db.select().from(plannerTasks).where(inArray(plannerTasks.workOrderId, orderIds))
+      : [];
+
   const contactRows = await db
     .select()
     .from(contactSubmissions)
     .where(eq(contactSubmissions.email, emailLower));
+
+  const consentRows = await db
+    .select()
+    .from(consentAuditLogs)
+    .where(eq(consentAuditLogs.userId, uid));
+
+  const reviewsReceived = await db.select().from(reviews).where(eq(reviews.tradesmanId, uid));
+  const reviewsGiven = await db.select().from(reviews).where(eq(reviews.reviewerId, uid));
 
   return {
     schemaVersion: 1,
@@ -84,7 +139,12 @@ export async function buildGdprExportJson(db: Db, user: UserRow): Promise<Record
     workOrders: orders,
     bids,
     jobTimelineUpdates: timeline,
+    jobWorkMedia: jobMedia,
+    plannerTasks: plannerTaskRows,
     contactFormSubmissionsMatchedByEmail: contactRows,
+    consentAuditLog: consentRows,
+    reviewsReceived,
+    reviewsGiven,
   };
 }
 

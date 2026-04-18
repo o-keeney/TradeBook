@@ -1,10 +1,17 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { LoginForm } from "@/components/login-form";
 import { PageShell } from "@/components/page-shell";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Log in",
+  description: "Sign in to Tradebook with your email and password.",
+  alternates: { canonical: "/login" },
+  openGraph: {
+    title: "Log in · Tradebook",
+    description: "Sign in to Tradebook with your email and password.",
+  },
 };
 
 function safeNext(raw: string | undefined): string {

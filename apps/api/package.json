@@ -11,7 +11,8 @@
     "db:migrate:local": "node run-wrangler.mjs d1 migrations apply tradebook-db --local",
     "db:migrate:remote": "node run-wrangler.mjs d1 migrations apply tradebook-db --remote",
     "create-admin": "node scripts/create-admin-user.mjs",
-    "create-admin:apply": "node scripts/create-admin-user.mjs && node run-wrangler.mjs d1 execute tradebook-db --local --file=scripts/last-admin-insert.sql"
+    "create-admin:apply": "node scripts/create-admin-user.mjs && node run-wrangler.mjs d1 execute tradebook-db --local --file=scripts/last-admin-insert.sql",
+    "test": "vitest run"
   },
   "dependencies": {
     "@tradebook/construction-professions": "file:../../packages/construction-professions",
@@ -25,6 +26,7 @@
     "@cloudflare/workers-types": "^4.20250317.0",
     "drizzle-kit": "^0.31.0",
     "typescript": "^5.8.2",
+    "vitest": "^3.0.5",
     "wrangler": "^4.65.0"
   }
 }

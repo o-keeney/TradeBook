@@ -7,12 +7,13 @@ import { users } from "./db/schema";
 import type { Env } from "./env";
 import { csrfProtectionMiddleware, sessionCsrfBootstrapMiddleware } from "./middleware/csrf";
 import { requestLogMiddleware } from "./middleware/request-log";
-import { adminPricingRoutes } from "./routes/admin-pricing";
+import { adminRoutes } from "./routes/admin";
 import { authRoutes } from "./routes/auth";
 import { gdprRoutes } from "./routes/gdpr";
 import { portfolioManageRoutes } from "./routes/portfolio-manage";
 import { publicPortfolioRoutes } from "./routes/portfolio-public";
 import { publicSiteRoutes } from "./routes/public-site";
+import { reviewRoutes } from "./routes/reviews";
 import { tradesmenRoutes } from "./routes/tradesmen";
 import { workOrderRoutes } from "./routes/work-orders";
 import { userRoutes } from "./routes/users";
@@ -31,7 +32,7 @@ app.use("*", (c, next) => {
       return null;
     },
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization"],
+    allowHeaders: ["Content-Type", "Authorization", "X-CSRF-Token"],
     credentials: true,
   })(c, next);
 });
@@ -71,8 +72,9 @@ app.route("/api/tradesmen", tradesmenRoutes);
 app.route("/api/auth", authRoutes);
 app.route("/api/users", userRoutes);
 app.route("/api/gdpr", gdprRoutes);
-app.route("/api/admin", adminPricingRoutes);
+app.route("/api/admin", adminRoutes);
 app.route("/api/portfolio", portfolioManageRoutes);
 app.route("/api/work-orders", workOrderRoutes);
+app.route("/api/reviews", reviewRoutes);
 
 export default app;

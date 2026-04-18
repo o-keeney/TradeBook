@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { PageShell } from "@/components/page-shell";
 import { apiFetch } from "@/lib/api";
@@ -99,12 +100,39 @@ export default function AdminPage() {
   return (
     <PageShell
       title="Admin"
-      description="Platform pricing and messages from the public contact form."
+      description="Platform pricing, contact inbox, and user accounts. Use the shortcuts below to jump to each area."
     >
       {loading ? (
         <p className="text-sm text-neutral-500">Loading…</p>
       ) : (
         <>
+        <nav
+          aria-label="Admin areas"
+          className="mb-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
+        >
+          <Link
+            href="/admin/users"
+            className="rounded-xl border border-neutral-200 bg-white p-4 text-sm font-medium text-neutral-900 shadow-sm transition hover:border-neutral-300 hover:shadow dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-100 dark:hover:border-neutral-700"
+          >
+            Users — search, edit accounts &amp; tradesman profiles
+          </Link>
+          <a
+            href="#admin-contact-inbox"
+            className="rounded-xl border border-neutral-200 bg-white p-4 text-sm font-medium text-neutral-900 shadow-sm transition hover:border-neutral-300 hover:shadow dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-100 dark:hover:border-neutral-700"
+          >
+            Contact inbox — public form submissions (this page)
+          </a>
+          <div className="rounded-xl border border-dashed border-neutral-300 p-4 text-sm text-neutral-500 dark:border-neutral-600 dark:text-neutral-400">
+            Subscriptions &amp; billing (Stripe) — planned; pricing field below is interim.
+          </div>
+          <div className="rounded-xl border border-dashed border-neutral-300 p-4 text-sm text-neutral-500 dark:border-neutral-600 dark:text-neutral-400">
+            Moderation &amp; reviews — planned.
+          </div>
+          <div className="rounded-xl border border-dashed border-neutral-300 p-4 text-sm text-neutral-500 dark:border-neutral-600 dark:text-neutral-400">
+            Ads / slots — planned.
+          </div>
+        </nav>
+
         <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
           Tradesman subscription (EUR / month)
         </h2>
@@ -137,7 +165,10 @@ export default function AdminPage() {
           </button>
         </form>
 
-        <section className="mt-12 max-w-2xl border-t border-neutral-200 pt-10 dark:border-neutral-800">
+        <section
+          id="admin-contact-inbox"
+          className="mt-12 max-w-2xl scroll-mt-24 border-t border-neutral-200 pt-10 dark:border-neutral-800"
+        >
           <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
             Contact form (latest 100)
           </h2>

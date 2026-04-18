@@ -32,7 +32,7 @@ export default function DevHubPage() {
   return (
     <PageShell
       title="Developer hub"
-      description="Non-production pages used to exercise the API during development. Remove or protect these routes before a public launch."
+      description="Local-only developer tools. In production builds these URLs return 404 (see app/dev/layout.tsx)."
     >
       <ul className="space-y-3">
         {tools.map((t) => (

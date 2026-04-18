@@ -42,8 +42,10 @@ function statusPillClass(status: string): string {
       return "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200";
     case "cancelled":
     case "declined":
+    case "customer_rejected":
       return "border-neutral-300 bg-neutral-100 text-neutral-700 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-300";
     case "open_bidding":
+    case "quotes_submitted":
       return "border-sky-200 bg-sky-50 text-sky-950 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-100";
     case "accepted":
     case "in_progress":

@@ -2,7 +2,7 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { createDb } from "../db/drizzle";
-import { tradesmenProfiles, users } from "../db/schema";
+import { reviews, tradesmenProfiles, users } from "../db/schema";
 import type { Env } from "../env";
 import type { UserRow } from "../lib/public-user";
 import {
@@ -180,6 +180,58 @@ export const tradesmenRoutes = new Hono<{
     const db = createDb(c.env.DB);
     const rows = await queryTradesmenDiscovery(db, parseDiscoveryQuery(c));
     return c.json(discoveryResponseJson(rows));
+  })
+  .get("/:id/reviews", async (c) => {
+    const id = c.req.param("id");
+    const db = createDb(c.env.DB);
+
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(and(eq(users.id, id), isNull(users.deletedAt)));
+
+    if (!user || user.role !== "tradesman") {
+      return c.json({ error: { code: "not_found", message: "Tradesman not found" } }, 404);
+    }
+
+    const limitRaw = c.req.query("limit");
+    let limit = 20;
+    if (limitRaw) {
+      const n = Number.parseInt(limitRaw, 10);
+      if (Number.isFinite(n)) limit = Math.min(50, Math.max(1, n));
+    }
+
+    const rows = await db
+      .select({
+        review: reviews,
+        reviewerFirstName: users.firstName,
+      })
+      .from(reviews)
+      .innerJoin(users, eq(users.id, reviews.reviewerId))
+      .where(eq(reviews.tradesmanId, id))
+      .orderBy(desc(reviews.createdAt))
+      .limit(limit);
+
+    return c.json({
+      reviews: rows.map((r) => ({
+        id: r.review.id,
+        rating: r.review.rating,
+        comment: r.review.comment,
+        createdAt: r.review.createdAt.getTime(),
+        reviewerFirstName: r.reviewerFirstName ?? null,
+      })),
+    });
+  })
+  .get("/:id/profile", requireUser, requireTradesman, async (c) => {
+    const id = c.req.param("id");
+    const sessionUser = c.get("user");
+    if (id !== sessionUser.id) {
+      return c.json({ error: { code: "forbidden", message: "You can only read your own profile" } }, 403);
+    }
+
+    const db = createDb(c.env.DB);
+    const profile = await ensureTradesmanProfile(db, id);
+    return c.json({ profile: toOwnerTradesmanProfile(profile) });
   })
   .get("/:id", async (c) => {
     const id = c.req.param("id");

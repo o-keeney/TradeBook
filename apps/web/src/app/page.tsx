@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AdSlot } from "@/components/ad-slot";
 import { getPublicApiUrl } from "@/lib/public-env";
 
 const tradesmanFeatures = [
@@ -60,7 +61,7 @@ export default async function Home() {
   const tradesmanMonthlyEuros = await fetchTradesmanMonthlyEuros();
 
   return (
-    <main>
+    <div>
       <section className="border-b border-[var(--border)] bg-gradient-to-b from-[var(--hero-gradient-from)] to-[var(--background)] px-4 py-16 sm:py-24">
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-sm font-medium uppercase tracking-wide text-[var(--muted)]">Ireland</p>
@@ -171,7 +172,11 @@ export default async function Home() {
             </li>
           </ul>
         </nav>
+
+        <div className="mt-12">
+          <AdSlot placement="home_under_hero" />
+        </div>
       </section>
-    </main>
+    </div>
   );
 }

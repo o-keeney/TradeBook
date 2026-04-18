@@ -1,13 +1,5 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { PageShell } from "@/components/page-shell";
-
-export const metadata: Metadata = {
-  title: "Privacy Policy",
-  description:
-    "Draft privacy notice for Tradebook (Ireland / GDPR-oriented outline). Replace with counsel-reviewed policy before production.",
-  alternates: { canonical: "/privacy" },
-};
 
 export default function PrivacyPage() {
   return (
@@ -32,7 +24,11 @@ export default function PrivacyPage() {
         <section className="scroll-mt-20">
           <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">2. Data we may collect</h2>
           <ul className="mt-2 list-disc space-y-2 pl-5">
-            <li>Account details: name, email, phone where provided, role (customer or tradesman), and authentication data.</li>
+            <li>
+              Account details: name, email, phone where provided, role (customer or tradesman), and authentication
+              data. At registration we may record a consent audit entry (timestamp, IP, user agent, and the
+              GDPR-related choices you ticked).
+            </li>
             <li>Profile and portfolio content you choose to publish.</li>
             <li>Work order and messaging content needed to run the product.</li>
             <li>Technical logs: IP address, user agent, timestamps—typically for security and debugging (retention TBD).</li>

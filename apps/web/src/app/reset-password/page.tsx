@@ -7,6 +7,11 @@ import { PageShell } from "@/components/page-shell";
 export const metadata: Metadata = {
   title: "Reset password",
   description: "Choose a new password for your Tradebook account.",
+  alternates: { canonical: "/reset-password" },
+  openGraph: {
+    title: "Reset password · Tradebook",
+    description: "Set a new password using your email reset link.",
+  },
 };
 
 function ResetFallback() {

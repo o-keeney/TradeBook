@@ -56,10 +56,80 @@ html.dark {
   --hero-gradient-from: #0a0a0a;
 }
 
+html {
+  scroll-padding-top: 4.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 body {
   color: var(--foreground);
   background-color: var(--background);
   font-family: system-ui, sans-serif;
+}
+
+:root {
+  --focus-ring: #4338ca;
+  --focus-ring-offset: #ffffff;
+}
+
+html.dark {
+  --focus-ring: #a5b4fc;
+  --focus-ring-offset: #0a0a0a;
+}
+
+/* Visible focus for keyboard users (WCAG 2.4.7); avoid mouse-click outline noise */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Skip link: off-screen until focused */
+.skip-link {
+  position: absolute;
+  left: 0.75rem;
+  top: -120px;
+  z-index: 200;
+  border-radius: 0.5rem;
+  border: 2px solid var(--focus-ring);
+  background-color: var(--focus-ring-offset);
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--foreground);
+  text-decoration: none;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.12);
+  transition: top 0.15s ease;
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+  top: 0.75rem;
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Land focus visibly on main after “Skip to main content” (global :focus reset above). */
+#main-content:focus {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 @layer components {
@@ -69,6 +139,7 @@ body {
     font-size: 0.875rem;
     line-height: 1.25rem;
     font-weight: 500;
+    touch-action: manipulation;
     transition-property: color, background-color;
     transition-duration: 150ms;
     background-color: var(--btn-primary-bg);
@@ -87,6 +158,7 @@ body {
     font-size: 0.875rem;
     line-height: 1.25rem;
     font-weight: 500;
+    touch-action: manipulation;
     transition-property: color, background-color;
     transition-duration: 150ms;
     background-color: var(--btn-primary-bg);
@@ -108,6 +180,7 @@ body {
     font-size: 0.875rem;
     line-height: 1.25rem;
     font-weight: 500;
+    touch-action: manipulation;
     box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
     transition-property: color, background-color;
     transition-duration: 150ms;

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { CookieConsentBanner } from "@/components/cookie-consent-banner";
 import { OrganizationJsonLd } from "@/components/organization-jsonld";
+import { SkipToMain } from "@/components/skip-to-main";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { ThemeProvider } from "@/components/theme-context";
@@ -57,8 +58,11 @@ export default function RootLayout({
         </Script>
         <ThemeProvider>
           <OrganizationJsonLd />
+          <SkipToMain />
           <SiteHeader />
-          <div className="flex-1">{children}</div>
+          <main id="main-content" tabIndex={-1} className="flex-1">
+            {children}
+          </main>
           <SiteFooter />
           <CookieConsentBanner />
         </ThemeProvider>

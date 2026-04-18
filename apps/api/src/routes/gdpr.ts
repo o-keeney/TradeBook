@@ -4,7 +4,12 @@ import { z } from "zod";
 import { createDb } from "../db/drizzle";
 import type { Env } from "../env";
 import { clearCsrfCookie } from "../lib/csrf-cookie";
-import { buildGdprExportJson, collectPortfolioR2Keys, deleteUserById } from "../lib/gdpr-data";
+import {
+  buildGdprExportJson,
+  collectJobWorkMediaR2Keys,
+  collectPortfolioR2Keys,
+  deleteUserById,
+} from "../lib/gdpr-data";
 import type { UserRow } from "../lib/public-user";
 import { clearSessionCookie } from "../lib/session-cookie";
 import { requireEmailVerified } from "../middleware/email-verified";
@@ -44,7 +49,12 @@ async function handleErase(
   }
 
   const db = createDb(c.env.DB);
-  const keys = await collectPortfolioR2Keys(db, u.id);
+  const keys = [
+    ...new Set([
+      ...(await collectPortfolioR2Keys(db, u.id)),
+      ...(await collectJobWorkMediaR2Keys(db, u.id)),
+    ]),
+  ];
   const bucket = c.env.MEDIA_BUCKET;
   if (bucket) {
     for (const key of keys) {

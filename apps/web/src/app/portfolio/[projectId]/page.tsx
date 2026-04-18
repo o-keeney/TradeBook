@@ -1,9 +1,18 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { PortfolioProjectDetail } from "@/components/portfolio-project-detail";
 
-export const metadata = {
-  title: "Project",
-};
+type PageProps = { params: Promise<{ projectId: string }> };
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { projectId } = await params;
+  return {
+    title: "Portfolio project",
+    description: "View and edit one of your portfolio projects on Tradebook.",
+    robots: { index: false, follow: false },
+    alternates: { canonical: `/portfolio/${projectId}` },
+  };
+}
 
 export default function PortfolioProjectPage() {
   return (

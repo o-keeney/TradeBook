@@ -51,7 +51,7 @@ function projectMetaLine(p: PortfolioProject): string {
   return formatProjectDate(p.createdAt);
 }
 
-export function PortfolioSandbox() {
+export function TradesmanPortfolioManager() {
   const router = useRouter();
   const [projects, setProjects] = useState<PortfolioProject[]>([]);
   const [covers, setCovers] = useState<Record<string, string | null>>({});

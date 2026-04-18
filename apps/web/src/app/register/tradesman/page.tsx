@@ -1,8 +1,15 @@
+import type { Metadata } from "next";
 import { RegisterForm } from "@/components/register-form";
 import { PageShell } from "@/components/page-shell";
 
-export const metadata = {
-  title: "Register now",
+export const metadata: Metadata = {
+  title: "Register as a tradesperson",
+  description: "Sign up to list your trade, build a public portfolio, bid on jobs, and manage work on Tradebook.",
+  alternates: { canonical: "/register/tradesman" },
+  openGraph: {
+    title: "Register as a tradesperson · Tradebook",
+    description: "Tradesperson registration for Tradebook — portfolio, bids, and job timelines.",
+  },
 };
 
 export default function RegisterTradesmanPage() {

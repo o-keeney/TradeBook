@@ -3,11 +3,17 @@ import type { UserRow } from "./public-user";
 
 export type TradesmanProfileRow = typeof tradesmenProfiles.$inferSelect;
 
-function tradesmanDisplayName(user: Pick<UserRow, "firstName" | "lastName">): string {
+function tradesmanDisplayName(
+  user: Pick<UserRow, "firstName" | "lastName">,
+  companyName: string | null | undefined,
+): string {
   const f = user.firstName?.trim() ?? "";
   const l = user.lastName?.trim() ?? "";
   const full = `${f} ${l}`.trim();
-  return full.length > 0 ? full : "Tradesperson";
+  if (full.length > 0) return full;
+  const co = companyName?.trim() ?? "";
+  if (co.length > 0) return co;
+  return "Tradesperson";
 }
 
 /** Public discovery / profile card (no account email; optional contact_* when visibility flags allow). */
@@ -26,7 +32,7 @@ export function toPublicTradesmanProfile(
   const company = profile.companyName?.trim();
   return {
     id: user.id,
-    displayName: tradesmanDisplayName(user),
+    displayName: tradesmanDisplayName(user, profile.companyName),
     companyName: company && company.length > 0 ? company : null,
     bio: profile.bio,
     tradeCategories: profile.tradeCategories,

@@ -1,0 +1,18 @@
+# Copy to `.dev.vars` in this directory (`apps/api/.dev.vars`).
+# Wrangler loads `.dev.vars` for `wrangler dev` only. The real file is gitignored — never commit secrets.
+#
+# See README.md → "Secrets vs configuration" for what belongs here vs `wrangler secret` in production.
+
+# --- Brevo (transactional email) ---
+# Production / staging: use `wrangler secret put BREVO_API_KEY` (never commit the key).
+# BREVO_API_KEY=
+
+# Safe as non-secret (or use [vars] in wrangler.toml / dashboard for prod defaults).
+# BREVO_SENDER_EMAIL=noreply@yourdomain.com
+# BREVO_SENDER_NAME=Tradebook
+
+# --- Future (when wired in code) ---
+# STRIPE_SECRET_KEY=
+# STRIPE_WEBHOOK_SECRET=
+# BUDGETSMS_API_KEY=
+# MAPBOX_SERVER_TOKEN=

@@ -1,8 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { PageShell } from "@/components/page-shell";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Register",
+  description: "Create a Tradebook account as a customer or a tradesperson in Ireland.",
+  alternates: { canonical: "/register" },
+  openGraph: {
+    title: "Register · Tradebook",
+    description: "Create a Tradebook account as a customer or a tradesperson in Ireland.",
+  },
 };
 
 export default function RegisterChooserPage() {

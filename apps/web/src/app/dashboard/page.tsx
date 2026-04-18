@@ -61,8 +61,8 @@ export default function DashboardPage() {
         <EmailVerificationBanner />
       ) : null}
 
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,15.5rem)_1fr] lg:items-start">
-        <aside className="rounded-2xl border border-neutral-200/90 bg-neutral-50/80 p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/50 lg:sticky lg:top-24">
+      <div className="grid gap-8 md:grid-cols-[minmax(0,15.5rem)_1fr] md:items-start">
+        <aside className="shrink-0 self-start rounded-2xl border border-neutral-200/90 bg-neutral-50/95 p-4 shadow-sm backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-900/95 md:sticky md:top-24 md:z-[1] md:max-h-[calc(100dvh-6.5rem)] md:overflow-y-auto">
           <h2 className="text-[0.65rem] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
             Account
           </h2>
@@ -80,6 +80,7 @@ export default function DashboardPage() {
               {user.role}
             </span>
           </p>
+          <AccountNameForm user={user} onSaved={setUser} />
           <p className="mt-3 text-xs text-neutral-600 dark:text-neutral-400">
             <span className="font-medium text-neutral-700 dark:text-neutral-300">Email verified: </span>
             {user.emailVerified ? (
@@ -115,14 +116,24 @@ export default function DashboardPage() {
               />
             </li>
             {user.role === "tradesman" ? (
-              <li>
-                <DashboardActionCard
-                  href="/portfolio"
-                  title="Portfolio"
-                  description="Showcase completed work with photos, dates, and project notes on your public profile."
-                  icon={<IconPortfolio />}
-                />
-              </li>
+              <>
+                <li>
+                  <DashboardActionCard
+                    href="/profile"
+                    title="Public profile"
+                    description="Bio, trades, service area, and optional contact details shown on Find tradesmen."
+                    icon={<IconUserCircle />}
+                  />
+                </li>
+                <li>
+                  <DashboardActionCard
+                    href="/portfolio"
+                    title="Portfolio"
+                    description="Showcase completed work with photos, dates, and project notes on your public profile."
+                    icon={<IconPortfolio />}
+                  />
+                </li>
+              </>
             ) : null}
             <li>
               <DashboardActionCard
@@ -160,6 +171,111 @@ export default function DashboardPage() {
         )}
       </div>
     </PageShell>
+  );
+}
+
+function AccountNameForm({
+  user,
+  onSaved,
+}: {
+  user: MeUser;
+  onSaved: (u: MeUser) => void;
+}) {
+  const [firstName, setFirstName] = useState(user.firstName?.trim() ?? "");
+  const [lastName, setLastName] = useState(user.lastName?.trim() ?? "");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    setFirstName(user.firstName?.trim() ?? "");
+    setLastName(user.lastName?.trim() ?? "");
+  }, [user.id, user.firstName, user.lastName]);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setMsg(null);
+    if (!firstName.trim() || !lastName.trim()) {
+      setMsg("First and last name are required.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await apiFetch("/api/users/me", {
+        method: "PATCH",
+        body: JSON.stringify({
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+        }),
+      });
+      const data = (await res.json().catch(() => null)) as {
+        user?: MeUser;
+        error?: { message?: string };
+      };
+      if (!res.ok) {
+        setMsg(data?.error?.message ?? `Update failed (${res.status}).`);
+        return;
+      }
+      if (data.user) onSaved(data.user);
+      setMsg("Saved.");
+    } catch {
+      setMsg("Could not reach the API.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const inputClass =
+    "mt-1 w-full rounded-lg border border-neutral-300 bg-white px-2.5 py-1.5 text-sm text-neutral-900 shadow-sm focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100";
+
+  return (
+    <form
+      onSubmit={(e) => void save(e)}
+      className="mt-4 border-t border-neutral-200 pt-4 dark:border-neutral-700"
+    >
+      <h3 className="text-[0.65rem] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+        Your name
+      </h3>
+      <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+        {user.role === "tradesman"
+          ? "This is the name shown on Find tradesmen when customers browse listings."
+          : "Used in your account and in emails about your activity."}
+      </p>
+      <label className="mt-3 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+        First name
+        <input
+          name="accountFirstName"
+          value={firstName}
+          onChange={(e) => setFirstName(e.target.value)}
+          autoComplete="given-name"
+          className={inputClass}
+        />
+      </label>
+      <label className="mt-2 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+        Last name
+        <input
+          name="accountLastName"
+          value={lastName}
+          onChange={(e) => setLastName(e.target.value)}
+          autoComplete="family-name"
+          className={inputClass}
+        />
+      </label>
+      <button
+        type="submit"
+        disabled={busy}
+        className="mt-3 rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 disabled:opacity-60 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
+      >
+        {busy ? "Saving…" : "Save name"}
+      </button>
+      {msg ? (
+        <p
+          className={`mt-2 text-xs ${msg === "Saved." ? "text-emerald-700 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}
+          role={msg === "Saved." ? undefined : "alert"}
+        >
+          {msg}
+        </p>
+      ) : null}
+    </form>
   );
 }
 
@@ -335,6 +451,18 @@ function IconPortfolio() {
   return (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    </svg>
+  );
+}
+
+function IconUserCircle() {
+  return (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z"
+      />
     </svg>
   );
 }

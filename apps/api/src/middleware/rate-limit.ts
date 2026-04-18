@@ -1,7 +1,8 @@
 import type { Context, Next } from "hono";
 import type { Env } from "../env";
 
-function clientIp(c: Context<{ Bindings: Env }>): string {
+/** Resolved client IP for rate limits, logging, and audit trails (may be `"unknown"`). */
+export function clientIp(c: Context<{ Bindings: Env }>): string {
   const cf = c.req.header("CF-Connecting-IP")?.trim();
   if (cf) return cf;
   const xff = c.req.header("X-Forwarded-For");

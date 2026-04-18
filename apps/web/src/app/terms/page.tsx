@@ -1,13 +1,5 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { PageShell } from "@/components/page-shell";
-
-export const metadata: Metadata = {
-  title: "Terms of Service",
-  description:
-    "Draft terms of use for the Tradebook platform (Ireland). Replace with counsel-reviewed text before production.",
-  alternates: { canonical: "/terms" },
-};
 
 export default function TermsPage() {
   return (

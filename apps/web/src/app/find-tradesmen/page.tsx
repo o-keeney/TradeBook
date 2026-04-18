@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { AdSlot } from "@/components/ad-slot";
 import { MapboxAddressField } from "@/components/mapbox-address-field";
 import { PageShell } from "@/components/page-shell";
 import { apiFetch } from "@/lib/api";
@@ -83,9 +85,6 @@ export default function FindTradesmenPage() {
   /** `null` until the first list load finishes; then reflects the last successful fetch. */
   const [listSource, setListSource] = useState<"top" | "search" | null>(null);
   const [error, setError] = useState<string | null>(null);
-  /** `undefined` = not loaded, `null` = error or empty, object = payload */
-  const [portfolioById, setPortfolioById] = useState<Record<string, unknown | null>>({});
-  const [loadingPortfolioId, setLoadingPortfolioId] = useState<string | null>(null);
 
   const runSearch = useCallback(
     async (
@@ -98,7 +97,6 @@ export default function FindTradesmenPage() {
       } = {},
     ) => {
       setError(null);
-      setPortfolioById({});
       setLoading(true);
       try {
         const params = new URLSearchParams();
@@ -145,27 +143,6 @@ export default function FindTradesmenPage() {
     void runSearch({ profession, address, county, availableOnly, minRating });
   }
 
-  async function loadPortfolio(userId: string) {
-    const existing = portfolioById[userId];
-    if (existing !== undefined && existing !== null) return;
-    if (loadingPortfolioId === userId) return;
-    setLoadingPortfolioId(userId);
-    setError(null);
-    try {
-      const res = await apiFetch(`/api/tradesmen/${encodeURIComponent(userId)}/portfolio`);
-      if (!res.ok) {
-        setPortfolioById((m) => ({ ...m, [userId]: null }));
-        return;
-      }
-      const json = (await res.json()) as unknown;
-      setPortfolioById((m) => ({ ...m, [userId]: json }));
-    } catch {
-      setPortfolioById((m) => ({ ...m, [userId]: null }));
-    } finally {
-      setLoadingPortfolioId(null);
-    }
-  }
-
   const inputClass =
     "mt-1.5 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 shadow-sm focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100";
 
@@ -174,7 +151,17 @@ export default function FindTradesmenPage() {
       title="Find tradesmen"
       description="We show the highest-rated tradespeople first (by average review score). Narrow results with trade, area, or county."
     >
-      <form onSubmit={(e) => void search(e)} className="max-w-xl space-y-4">
+      <section
+        aria-labelledby="find-tradesmen-filters-heading"
+        className="rounded-2xl border border-neutral-200 bg-neutral-50/95 p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/50 sm:p-6"
+      >
+        <h2
+          id="find-tradesmen-filters-heading"
+          className="text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400"
+        >
+          Search filters
+        </h2>
+        <form onSubmit={(e) => void search(e)} className="mt-4 max-w-xl space-y-4">
         <label className="block text-sm font-medium text-neutral-800 dark:text-neutral-200">
           Profession / trade
           <input
@@ -245,21 +232,25 @@ export default function FindTradesmenPage() {
         >
           {loading ? "Searching…" : "Search"}
         </button>
-      </form>
+        </form>
+      </section>
 
-      {loading && results === null ? (
-        <p className="mt-6 text-sm text-neutral-600 dark:text-neutral-400">Loading tradespeople…</p>
-      ) : null}
+      <AdSlot placement="find_tradesmen_inline" className="mt-10" />
 
-      {error ? (
-        <p className="mt-6 text-sm text-red-600 dark:text-red-400" role="alert">
-          {error}
-        </p>
-      ) : null}
+      <div className="mt-12 space-y-8 border-t-2 border-neutral-200 pt-12 dark:border-neutral-700 sm:mt-14 sm:pt-14">
+        {loading && results === null ? (
+          <p className="text-sm text-neutral-600 dark:text-neutral-400">Loading tradespeople…</p>
+        ) : null}
 
-      {results !== null ? (
-        <div className="mt-8 space-y-4">
-          <h2 className="text-sm font-medium text-neutral-500 dark:text-neutral-400">
+        {error ? (
+          <p className="text-sm text-red-600 dark:text-red-400" role="alert">
+            {error}
+          </p>
+        ) : null}
+
+        {results !== null ? (
+        <div className="space-y-4">
+          <h2 className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">
             {listSource === "top"
               ? results.length === 0
                 ? "Top-rated tradespeople"
@@ -277,75 +268,58 @@ export default function FindTradesmenPage() {
           ) : (
             <ul className="space-y-4">
               {results.map(({ profile }) => (
-                <li
-                  key={profile.id}
-                  className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-950"
-                >
-                  <div className="flex flex-col gap-0.5">
-                    <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
-                      {profile.displayName}
-                    </h3>
-                    {profile.companyName ? (
-                      <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                        {profile.companyName}
+                <li key={profile.id}>
+                  <Link
+                    href={`/find-tradesmen/${encodeURIComponent(profile.id)}`}
+                    className="block cursor-pointer rounded-xl border border-neutral-200 bg-white p-4 shadow-sm outline-none ring-neutral-900/10 transition hover:border-neutral-300 hover:shadow-md focus-visible:ring-2 dark:border-neutral-800 dark:bg-neutral-950 dark:ring-white/20 dark:hover:border-neutral-700"
+                    aria-label={`View profile and portfolio for ${profile.displayName}`}
+                  >
+                    <div className="flex flex-col gap-0.5">
+                      <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
+                        {profile.displayName}
+                      </h3>
+                      {profile.companyName ? (
+                        <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                          {profile.companyName}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {profile.tradeCategories.length ? (
+                        profile.tradeCategories.map((t) => (
+                          <span
+                            key={t}
+                            className="rounded-full bg-neutral-200 px-2.5 py-0.5 text-xs font-medium text-neutral-800 dark:bg-neutral-800 dark:text-neutral-200"
+                          >
+                            {t}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs text-neutral-500">No trades listed yet</span>
+                      )}
+                    </div>
+                    {profile.bio ? (
+                      <p className="mt-2 line-clamp-4 text-sm text-neutral-700 dark:text-neutral-300">
+                        {profile.bio}
                       </p>
                     ) : null}
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {profile.tradeCategories.length ? (
-                      profile.tradeCategories.map((t) => (
-                        <span
-                          key={t}
-                          className="rounded-full bg-neutral-200 px-2.5 py-0.5 text-xs font-medium text-neutral-800 dark:bg-neutral-800 dark:text-neutral-200"
-                        >
-                          {t}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-xs text-neutral-500">No trades listed yet</span>
-                    )}
-                  </div>
-                  {profile.bio ? (
-                    <p className="mt-2 line-clamp-4 text-sm text-neutral-700 dark:text-neutral-300">
-                      {profile.bio}
+                    <p className="mt-2 text-sm font-medium text-neutral-800 dark:text-neutral-200">
+                      {formatRatingLine(profile.avgRating, profile.reviewCount)}
                     </p>
-                  ) : null}
-                  <p className="mt-2 text-sm font-medium text-neutral-800 dark:text-neutral-200">
-                    {formatRatingLine(profile.avgRating, profile.reviewCount)}
-                  </p>
-                  <p className="mt-1 text-xs text-neutral-500">
-                    {profile.isAvailable ? "Available" : "Unavailable"} ·{" "}
-                    {profile.verificationStatus === "verified"
-                      ? "Verified"
-                      : "Verification: " + profile.verificationStatus}
-                  </p>
-                  {portfolioById[profile.id] === undefined || portfolioById[profile.id] === null ? (
-                    <button
-                      type="button"
-                      className="mt-3 text-sm font-medium text-neutral-900 underline dark:text-neutral-100"
-                      onClick={() => void loadPortfolio(profile.id)}
-                      disabled={loadingPortfolioId === profile.id}
-                    >
-                      {loadingPortfolioId === profile.id
-                        ? "Loading portfolio…"
-                        : portfolioById[profile.id] === null
-                          ? "Retry portfolio"
-                          : "Show portfolio"}
-                    </button>
-                  ) : null}
-                  {portfolioById[profile.id] !== undefined && portfolioById[profile.id] !== null ? (
-                    <pre className="mt-2 max-h-48 overflow-auto rounded-lg bg-neutral-900 p-3 text-left text-xs text-neutral-100">
-                      {JSON.stringify(portfolioById[profile.id], null, 2)}
-                    </pre>
-                  ) : portfolioById[profile.id] === null && loadingPortfolioId !== profile.id ? (
-                    <p className="mt-2 text-xs text-neutral-500">Could not load portfolio.</p>
-                  ) : null}
+                    <p className="mt-1 text-xs text-neutral-500">
+                      {profile.isAvailable ? "Available" : "Unavailable"} ·{" "}
+                      {profile.verificationStatus === "verified"
+                        ? "Verified"
+                        : "Verification: " + profile.verificationStatus}
+                    </p>
+                  </Link>
                 </li>
               ))}
             </ul>
           )}
         </div>
-      ) : null}
+        ) : null}
+      </div>
     </PageShell>
   );
 }

@@ -3,7 +3,7 @@ import { and, eq, gt, isNotNull, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { createDb } from "../db/drizzle";
-import { sessions, tradesmenProfiles, users } from "../db/schema";
+import { consentAuditLogs, sessions, tradesmenProfiles, users } from "../db/schema";
 import type { Env } from "../env";
 import { issueEmailVerificationAndSend } from "../lib/email-verification";
 import { issuePasswordResetAndSend } from "../lib/password-reset";
@@ -18,7 +18,7 @@ import {
   setSessionCookie,
 } from "../lib/session-cookie";
 import { toPublicUser } from "../lib/public-user";
-import { rateLimitKv } from "../middleware/rate-limit";
+import { clientIp, rateLimitKv } from "../middleware/rate-limit";
 
 const registerSchema = z
   .object({
@@ -248,6 +248,20 @@ export const authRoutes = new Hono<{ Bindings: Env }>()
 
     setSessionCookie(c, sessionId);
     setCsrfCookie(c);
+
+    const rawIp = clientIp(c);
+    const ipStored = rawIp === "unknown" ? null : rawIp.slice(0, 128);
+    const uaStored = c.req.header("User-Agent")?.trim().slice(0, 512) || null;
+    await db.insert(consentAuditLogs).values({
+      id: crypto.randomUUID(),
+      userId: id,
+      ip: ipStored,
+      userAgent: uaStored,
+      gdprConsentDataProcessing: true,
+      gdprConsentMarketing: body.gdprConsentMarketing,
+      gdprConsentContactDisplay: body.gdprConsentContactDisplay,
+      source: "register",
+    });
 
     const [row] = await db.select().from(users).where(eq(users.id, id));
     const emailVerification = await issueEmailVerificationAndSend(c.env, db, {

@@ -24,6 +24,7 @@ CORS_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000"
 [[d1_databases]]
 binding = "DB"
 database_name = "tradebook-db"
+# Local dev placeholder. For remote deploy: `npx wrangler d1 list` / `d1 info tradebook-db` → paste real id (see apps/api/README.md).
 database_id = "00000000-0000-0000-0000-000000000001"
 migrations_dir = "migrations"
 

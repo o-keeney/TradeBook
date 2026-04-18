@@ -12,6 +12,7 @@
     "build": "npm run build --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "preview": "npm run preview --workspace=web",
+    "test:e2e": "npm run test:e2e --workspace=web",
     "deploy:web": "npm run deploy --workspace=web",
     "deploy:api": "npm run deploy --workspace=api",
     "db:generate": "npm run db:generate --workspace=api",

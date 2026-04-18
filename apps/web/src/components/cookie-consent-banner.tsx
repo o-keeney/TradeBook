@@ -2,49 +2,17 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-
-const STORAGE_KEY = "tradebook_consent_v1";
-
-type ConsentV1 = {
-  v: 1;
-  necessary: true;
-  analytics: boolean;
-  marketing: boolean;
-  savedAt: string;
-};
-
-function readStored(): ConsentV1 | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as ConsentV1;
-    if (parsed?.v !== 1 || parsed.necessary !== true) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-function writeConsent(analytics: boolean, marketing: boolean) {
-  const payload: ConsentV1 = {
-    v: 1,
-    necessary: true,
-    analytics,
-    marketing,
-    savedAt: new Date().toISOString(),
-  };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-}
+import { readCookieConsent, writeCookieConsent } from "@/lib/cookie-consent-storage";
 
 /**
- * Stores preferences in `localStorage` for future analytics/marketing wiring.
+ * Stores preferences in `localStorage` for analytics/marketing (e.g. {@link AdSlot} reads marketing).
  * Essential session cookies are always required to use signed-in features.
  */
 export function CookieConsentBanner() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (readStored() != null) return;
+    if (readCookieConsent() != null) return;
     setVisible(true);
   }, []);
 
@@ -53,6 +21,7 @@ export function CookieConsentBanner() {
   return (
     <div
       role="dialog"
+      aria-modal="true"
       aria-labelledby="cookie-consent-title"
       aria-describedby="cookie-consent-desc"
       className="fixed bottom-0 left-0 right-0 z-[100] border-t border-[var(--border)] bg-[var(--surface)]/95 p-4 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] backdrop-blur-md dark:shadow-[0_-4px_24px_rgba(0,0,0,0.35)]"
@@ -63,9 +32,13 @@ export function CookieConsentBanner() {
             Cookies and similar technologies
           </p>
           <p id="cookie-consent-desc" className="mt-1 text-pretty">
-            We use essential cookies to keep you signed in and run the service. Optional categories can be enabled
-            if we add analytics or marketing tools later. See our{" "}
-            <Link href="/privacy" className="font-medium text-[var(--primary)] underline underline-offset-2">
+            We use essential cookies to keep you signed in and run the service. If you accept all, we may load
+            optional analytics and <strong>personalised advertising</strong> where configured (for example Google
+            AdSense). See our{" "}
+            <Link
+              href="/privacy"
+              className="font-medium text-indigo-700 underline underline-offset-2 hover:text-indigo-900 dark:text-indigo-300 dark:hover:text-indigo-200"
+            >
               Privacy Policy
             </Link>
             .
@@ -74,9 +47,9 @@ export function CookieConsentBanner() {
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center">
           <button
             type="button"
-            className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-800 transition hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-100 dark:hover:bg-neutral-900"
+            className="min-h-11 rounded-lg border border-neutral-300 px-4 py-2.5 text-sm font-medium text-neutral-800 touch-manipulation transition hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-100 dark:hover:bg-neutral-900"
             onClick={() => {
-              writeConsent(false, false);
+              writeCookieConsent(false, false);
               setVisible(false);
             }}
           >
@@ -84,9 +57,9 @@ export function CookieConsentBanner() {
           </button>
           <button
             type="button"
-            className="tb-btn-primary"
+            className="tb-btn-primary min-h-11 px-4 py-2.5 touch-manipulation"
             onClick={() => {
-              writeConsent(true, true);
+              writeCookieConsent(true, true);
               setVisible(false);
             }}
           >

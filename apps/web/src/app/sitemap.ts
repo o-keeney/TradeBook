@@ -27,6 +27,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/terms",
     "/privacy",
     "/dashboard",
+    "/profile",
     "/portfolio",
     "/work-orders",
     "/verify-email",

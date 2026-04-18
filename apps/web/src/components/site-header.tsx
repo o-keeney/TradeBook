@@ -14,10 +14,12 @@ const primaryLinks = [
 ] as const;
 
 const tradesmanNavLinks = [
+  { href: "/profile", label: "Profile" },
   { href: "/portfolio", label: "Portfolio" },
   { href: "/work-orders", label: "Work orders" },
 ] as const;
 
+/** Admin only: use `/admin` then the in-page subnav (Overview · Users); avoid a top-level "Users" link. */
 const adminNavLinks = [{ href: "/admin", label: "Admin" }] as const;
 
 function linkActive(pathname: string, href: string): boolean {
@@ -67,25 +69,41 @@ export function SiteHeader() {
             <Link
               href="/"
               className="text-lg font-semibold tracking-tight text-[var(--foreground)]"
+              aria-current={pathname === "/" ? "page" : undefined}
             >
               Tradebook
             </Link>
             <nav className="flex flex-wrap gap-x-1 gap-y-2 text-sm" aria-label="Primary">
               {primaryLinks.map(({ href, label }) => (
-                <Link key={href} href={href} className={primaryNavLinkClass(pathname, href)}>
+                <Link
+                  key={href}
+                  href={href}
+                  className={primaryNavLinkClass(pathname, href)}
+                  aria-current={linkActive(pathname, href) ? "page" : undefined}
+                >
                   {label}
                 </Link>
               ))}
               {user?.role === "tradesman"
                 ? tradesmanNavLinks.map(({ href, label }) => (
-                    <Link key={href} href={href} className={primaryNavLinkClass(pathname, href)}>
+                    <Link
+                      key={href}
+                      href={href}
+                      className={primaryNavLinkClass(pathname, href)}
+                      aria-current={linkActive(pathname, href) ? "page" : undefined}
+                    >
                       {label}
                     </Link>
                   ))
                 : null}
               {user?.role === "admin"
                 ? adminNavLinks.map(({ href, label }) => (
-                    <Link key={href} href={href} className={primaryNavLinkClass(pathname, href)}>
+                    <Link
+                      key={href}
+                      href={href}
+                      className={primaryNavLinkClass(pathname, href)}
+                      aria-current={linkActive(pathname, href) ? "page" : undefined}
+                    >
                       {label}
                     </Link>
                   ))

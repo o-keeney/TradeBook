@@ -23,7 +23,7 @@ export function ThemeToggle() {
           type="button"
           title={title}
           onClick={() => setTheme(value)}
-          className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+          className={`min-h-9 min-w-9 touch-manipulation rounded-md px-2.5 py-2 text-xs font-medium transition-colors ${
             theme === value
               ? "bg-[var(--nav-active-bg)] text-[var(--nav-active-fg)]"
               : "text-[var(--muted)] hover:bg-[var(--nav-hover-bg)] hover:text-[var(--nav-hover-fg)]"

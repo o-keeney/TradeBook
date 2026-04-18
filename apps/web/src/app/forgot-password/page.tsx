@@ -6,6 +6,11 @@ import { PageShell } from "@/components/page-shell";
 export const metadata: Metadata = {
   title: "Forgot password",
   description: "Request a link to reset your Tradebook password.",
+  alternates: { canonical: "/forgot-password" },
+  openGraph: {
+    title: "Forgot password · Tradebook",
+    description: "Request a password reset link for your Tradebook account.",
+  },
 };
 
 export default function ForgotPasswordPage() {

@@ -53,6 +53,34 @@ export const users = sqliteTable("users", {
   deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
 });
 
+/** Snapshot of GDPR-related consents at signup (or future flows); IP/UA for accountability. */
+export const consentAuditLogs = sqliteTable(
+  "consent_audit_log",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(strftime('%s','now') * 1000)`),
+    ip: text("ip"),
+    userAgent: text("user_agent"),
+    gdprConsentDataProcessing: integer("gdpr_consent_data_processing", {
+      mode: "boolean",
+    }).notNull(),
+    gdprConsentMarketing: integer("gdpr_consent_marketing", { mode: "boolean" }).notNull(),
+    gdprConsentContactDisplay: integer("gdpr_consent_contact_display", {
+      mode: "boolean",
+    }).notNull(),
+    source: text("source").notNull().default("register"),
+  },
+  (t) => [
+    index("consent_audit_log_user_id_idx").on(t.userId),
+    index("consent_audit_log_created_at_idx").on(t.createdAt),
+  ],
+);
+
 export const verificationStatusEnum = ["none", "pending", "verified"] as const;
 export const subscriptionStatusEnum = [
   "inactive",
@@ -183,12 +211,14 @@ export const workOrderSubmissionEnum = ["direct", "open_bid"] as const;
 export const workOrderStatusEnum = [
   "pending",
   "open_bidding",
+  "quotes_submitted",
   "accepted",
   "in_progress",
   "awaiting_info",
   "completed",
   "cancelled",
   "declined",
+  "customer_rejected",
 ] as const;
 
 export const jobUpdateTypeEnum = [
@@ -289,6 +319,81 @@ export const jobUpdates = sqliteTable(
       .default(sql`(strftime('%s','now') * 1000)`),
   },
   (t) => [index("job_updates_work_order_id_idx").on(t.workOrderId)],
+);
+
+/** R2-backed photos attached to a work order (timeline references URLs served from GET …/media/:id/file). */
+export const jobWorkMedia = sqliteTable(
+  "job_work_media",
+  {
+    id: text("id").primaryKey(),
+    workOrderId: text("work_order_id")
+      .notNull()
+      .references(() => workOrders.id, { onDelete: "cascade" }),
+    uploadedByUserId: text("uploaded_by_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    r2Key: text("r2_key").notNull(),
+    mimeType: text("mime_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(strftime('%s','now') * 1000)`),
+  },
+  (t) => [
+    index("job_work_media_work_order_id_idx").on(t.workOrderId),
+    index("job_work_media_uploaded_by_user_id_idx").on(t.uploadedByUserId),
+  ],
+);
+
+export const plannerColumnEnum = ["todo", "in_progress", "done", "blocked"] as const;
+
+/** Tradesman job board tasks; visible read-only to the customer on the same work order. */
+export const plannerTasks = sqliteTable(
+  "planner_tasks",
+  {
+    id: text("id").primaryKey(),
+    workOrderId: text("work_order_id")
+      .notNull()
+      .references(() => workOrders.id, { onDelete: "cascade" }),
+    columnKey: text("column_key", { enum: plannerColumnEnum }).notNull(),
+    title: text("title").notNull(),
+    body: text("body"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(strftime('%s','now') * 1000)`),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(strftime('%s','now') * 1000)`),
+  },
+  (t) => [index("planner_tasks_work_order_id_idx").on(t.workOrderId)],
+);
+
+/** Customer review of the assigned tradesman for a completed work order (one row per job). */
+export const reviews = sqliteTable(
+  "reviews",
+  {
+    id: text("id").primaryKey(),
+    workOrderId: text("work_order_id")
+      .notNull()
+      .references(() => workOrders.id, { onDelete: "cascade" }),
+    reviewerId: text("reviewer_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tradesmanId: text("tradesman_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    rating: integer("rating").notNull(),
+    comment: text("comment"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(strftime('%s','now') * 1000)`),
+  },
+  (t) => [
+    uniqueIndex("reviews_work_order_id_unique").on(t.workOrderId),
+    index("reviews_tradesman_id_idx").on(t.tradesmanId),
+    index("reviews_reviewer_id_idx").on(t.reviewerId),
+  ],
 );
 
 /** Public contact form messages (bugs, feedback, improvements). */
