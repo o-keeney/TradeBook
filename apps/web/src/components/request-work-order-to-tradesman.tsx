@@ -8,6 +8,8 @@ import {
   isConstructionProfession,
 } from "@tradebook/construction-professions";
 import type { MeUser } from "@/components/auth-nav";
+import { MapboxAddressField } from "@/components/mapbox-address-field";
+import type { MapboxAddressCoords } from "@/components/mapbox-address-field";
 import { apiFetch } from "@/lib/api";
 import {
   meRequiresEmailVerifiedForMutations,
@@ -47,6 +49,7 @@ export function RequestWorkOrderToTradesman({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [locationAddress, setLocationAddress] = useState("");
+  const [locationCoords, setLocationCoords] = useState<MapboxAddressCoords | null>(null);
   const [locationPostcode, setLocationPostcode] = useState("");
   const [budgetRange, setBudgetRange] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -159,6 +162,9 @@ export function RequestWorkOrderToTradesman({
           locationAddress: addr,
           locationPostcode: pc,
         };
+        if (locationCoords) {
+          body.dimensions = { locationCoords };
+        }
         if (dueDate.trim()) {
           const dt = new Date(dueDate);
           if (!Number.isNaN(dt.getTime())) body.dueDate = dt.toISOString();
@@ -251,6 +257,7 @@ export function RequestWorkOrderToTradesman({
       tradeCategory,
       dueDate,
       budgetRange,
+      locationCoords,
       tradesmanUserId,
       router,
       pendingPhotos,
@@ -428,18 +435,23 @@ export function RequestWorkOrderToTradesman({
           </span>
         </label>
 
-        <label className="block text-sm font-medium text-neutral-800 dark:text-neutral-200">
-          Job location (address) <span className="text-red-600">*</span>
-          <input
-            className={inputClass}
-            value={locationAddress}
-            onChange={(e) => setLocationAddress(e.target.value)}
-            maxLength={500}
-            placeholder="Street, town"
-            required
-            disabled={needsVerificationGate}
-          />
-        </label>
+        <div className="block text-sm font-medium text-neutral-800 dark:text-neutral-200">
+          <span>
+            Job location (address) <span className="text-red-600">*</span>
+          </span>
+          <div className="mt-1.5">
+            <MapboxAddressField
+              value={locationAddress}
+              required
+              placeholder="Search by address or drop a pin"
+              inputClassName={inputClass}
+              onChange={(placeName, coords) => {
+                setLocationAddress(placeName);
+                setLocationCoords(coords ?? null);
+              }}
+            />
+          </div>
+        </div>
 
         <label className="block text-sm font-medium text-neutral-800 dark:text-neutral-200">
           Postcode / Eircode <span className="text-red-600">*</span>
@@ -457,7 +469,7 @@ export function RequestWorkOrderToTradesman({
         <label className="block text-sm font-medium text-neutral-800 dark:text-neutral-200">
           Preferred start or due date (optional)
           <input
-            type="datetime-local"
+            type="date"
             className={inputClass}
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}

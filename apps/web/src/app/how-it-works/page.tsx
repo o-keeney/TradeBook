@@ -97,8 +97,8 @@ export default function HowItWorksPage() {
           Plans and billing
         </h2>
         <p className="mt-3 text-sm text-neutral-600 dark:text-neutral-400">
-          Customer accounts are free. Tradesman listings reference a monthly plan on the home page; full checkout and
-          subscription enforcement will appear here once billing is connected for your organisation.
+          Customer accounts are free. Tradespeople can start with a first month free trial, then continue on the
+          monthly plan shown on the home page via Stripe checkout and subscription billing.
         </p>
       </section>
 

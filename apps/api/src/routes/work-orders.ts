@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, ne, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, lt, ne, or } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { createDb } from "../db/drizzle";
@@ -8,6 +8,7 @@ import {
   jobWorkMedia,
   plannerTasks,
   users,
+  workOrderAppointments,
   workOrders,
 } from "../db/schema";
 import type { Env } from "../env";
@@ -30,8 +31,10 @@ import {
   notifyPeerWorkOrderStatus,
   notifyTradesmanBidAccepted,
   notifyTradesmanDirectJobAssigned,
+  notifyWorkOrderAppointmentReminder,
   scheduleWorkOrderEmail,
 } from "../lib/work-order-email-notify";
+import { createNotification } from "../lib/notifications";
 
 const createWorkOrderSchema = z
   .object({
@@ -74,6 +77,10 @@ const awardSchema = z.object({
   bidId: z.string().uuid(),
 });
 
+const rejectQuoteSchema = z.object({
+  bidId: z.string().uuid(),
+});
+
 const respondSchema = z.object({
   action: z.enum(["accept", "decline"]),
 });
@@ -113,6 +120,23 @@ const patchPlannerTaskSchema = z.object({
   columnKey: plannerColumnSchema.optional(),
   sortOrder: z.number().int().optional(),
 });
+
+const postAppointmentSchema = z
+  .object({
+    title: z.string().min(1).max(200),
+    notes: z.string().max(2000).optional(),
+    startsAt: z.string().datetime(),
+    endsAt: z.string().datetime(),
+  })
+  .superRefine((data, ctx) => {
+    if (new Date(data.endsAt).getTime() <= new Date(data.startsAt).getTime()) {
+      ctx.addIssue({
+        code: "custom",
+        message: "endsAt must be after startsAt",
+        path: ["endsAt"],
+      });
+    }
+  });
 
 /** Same caps as portfolio uploads (client compression expected). */
 const MAX_JOB_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -267,6 +291,14 @@ export const workOrderRoutes = new Hono<{
     const [row] = await db.select().from(workOrders).where(eq(workOrders.id, id));
     if (row?.assignedTradesmanId) {
       scheduleWorkOrderEmail(c.env, () => notifyTradesmanDirectJobAssigned(c.env, db, row), "direct_job");
+      await createNotification(db, {
+        userId: row.assignedTradesmanId,
+        actorUserId: customer.id,
+        type: "work_order_direct_assigned",
+        title: "New direct job request",
+        body: row.title,
+        href: `/work-orders/${encodeURIComponent(row.id)}`,
+      });
     }
     return c.json({ workOrder: row }, 201);
   })
@@ -375,6 +407,14 @@ export const workOrderRoutes = new Hono<{
         () => notifyCustomerDirectJobResponse(c.env, db, row, row.status === "accepted"),
         "direct_respond",
       );
+      await createNotification(db, {
+        userId: row.customerId,
+        actorUserId: u.id,
+        type: "work_order_direct_response",
+        title: row.status === "accepted" ? "Direct job accepted" : "Direct job declined",
+        body: row.title,
+        href: `/work-orders/${encodeURIComponent(row.id)}`,
+      });
     }
     return c.json({ workOrder: row });
   })
@@ -417,8 +457,13 @@ export const workOrderRoutes = new Hono<{
       );
     }
 
-    const bidId = crypto.randomUUID();
-    try {
+    const [existingBid] = await db
+      .select()
+      .from(bidsQuotes)
+      .where(and(eq(bidsQuotes.workOrderId, id), eq(bidsQuotes.tradesmanId, u.id)));
+
+    let bidId = existingBid?.id ?? crypto.randomUUID();
+    if (!existingBid) {
       await db.insert(bidsQuotes).values({
         id: bidId,
         workOrderId: id,
@@ -428,15 +473,23 @@ export const workOrderRoutes = new Hono<{
         notes: body.notes ?? null,
         status: "submitted",
       });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "";
-      if (msg.includes("UNIQUE") || msg.includes("unique")) {
-        return c.json(
-          { error: { code: "conflict", message: "You already submitted a bid" } },
-          409,
-        );
-      }
-      throw err;
+    } else if (existingBid.status === "rejected") {
+      bidId = existingBid.id;
+      await db
+        .update(bidsQuotes)
+        .set({
+          estimatedCost: body.estimatedCost ?? null,
+          estimatedTimeline: body.estimatedTimeline ?? null,
+          notes: body.notes ?? null,
+          status: "submitted",
+          createdAt: new Date(),
+        })
+        .where(eq(bidsQuotes.id, existingBid.id));
+    } else {
+      return c.json(
+        { error: { code: "conflict", message: "You already submitted a bid" } },
+        409,
+      );
     }
 
     const [bid] = await db.select().from(bidsQuotes).where(eq(bidsQuotes.id, bidId));
@@ -450,6 +503,14 @@ export const workOrderRoutes = new Hono<{
     }
 
     scheduleWorkOrderEmail(c.env, () => notifyCustomerNewBid(c.env, db, wo, u.id), "new_bid");
+    await createNotification(db, {
+      userId: wo.customerId,
+      actorUserId: u.id,
+      type: "work_order_new_bid",
+      title: "New bid received",
+      body: wo.title,
+      href: `/work-orders/${encodeURIComponent(wo.id)}`,
+    });
     return c.json({ bid }, 201);
   })
   .get("/:id/bids", requireCustomer, async (c) => {
@@ -546,7 +607,91 @@ export const workOrderRoutes = new Hono<{
         () => notifyTradesmanBidAccepted(c.env, db, row, bid.tradesmanId),
         "bid_awarded",
       );
+      await createNotification(db, {
+        userId: bid.tradesmanId,
+        actorUserId: u.id,
+        type: "work_order_bid_awarded",
+        title: "Bid accepted",
+        body: row.title,
+        href: `/work-orders/${encodeURIComponent(row.id)}`,
+      });
     }
+    return c.json({ workOrder: row });
+  })
+  .post("/:id/reject-quote", requireCustomer, async (c) => {
+    const id = c.req.param("id");
+    const u = c.get("user");
+    let body: z.infer<typeof rejectQuoteSchema>;
+    try {
+      body = rejectQuoteSchema.parse(await c.req.json());
+    } catch (e) {
+      if (e instanceof z.ZodError) {
+        return c.json(
+          { error: { code: "validation_error", details: e.flatten() } },
+          400,
+        );
+      }
+      throw e;
+    }
+
+    const db = createDb(c.env.DB);
+    const [wo] = await db.select().from(workOrders).where(eq(workOrders.id, id));
+    if (!wo || wo.customerId !== u.id) {
+      return c.json({ error: { code: "not_found", message: "Not found" } }, 404);
+    }
+
+    if (
+      wo.submissionType !== "open_bid" ||
+      (wo.status !== "open_bidding" && wo.status !== "quotes_submitted")
+    ) {
+      return c.json(
+        { error: { code: "conflict", message: "This job is not awaiting quotes" } },
+        409,
+      );
+    }
+
+    const [bid] = await db
+      .select()
+      .from(bidsQuotes)
+      .where(
+        and(eq(bidsQuotes.id, body.bidId), eq(bidsQuotes.workOrderId, id)),
+      );
+
+    if (!bid || bid.status !== "submitted") {
+      return c.json({ error: { code: "not_found", message: "Quote not found" } }, 404);
+    }
+
+    await db
+      .update(bidsQuotes)
+      .set({ status: "rejected" })
+      .where(eq(bidsQuotes.id, body.bidId));
+
+    await createNotification(db, {
+      userId: bid.tradesmanId,
+      actorUserId: u.id,
+      type: "work_order_bid_rejected",
+      title: "Bid rejected",
+      body: wo.title,
+      href: `/work-orders/${encodeURIComponent(wo.id)}`,
+    });
+
+    const [remaining] = await db
+      .select({ count: count() })
+      .from(bidsQuotes)
+      .where(
+        and(eq(bidsQuotes.workOrderId, id), eq(bidsQuotes.status, "submitted")),
+      );
+
+    const now = new Date();
+    await db
+      .update(workOrders)
+      .set({
+        status: remaining && remaining.count > 0 ? "quotes_submitted" : "open_bidding",
+        updatedAt: now,
+      })
+      .where(eq(workOrders.id, id));
+
+    const [row] = await db.select().from(workOrders).where(eq(workOrders.id, id));
     return c.json({ workOrder: row });
   })
   .post("/:id/reject-bidding", requireCustomer, async (c) => {
@@ -570,6 +715,13 @@ export const workOrderRoutes = new Hono<{
     }
 
     const now = new Date();
+    const submittedBids = await db
+      .select({ id: bidsQuotes.id, tradesmanId: bidsQuotes.tradesmanId })
+      .from(bidsQuotes)
+      .where(
+        and(eq(bidsQuotes.workOrderId, id), eq(bidsQuotes.status, "submitted")),
+      );
+
     await db
       .update(bidsQuotes)
       .set({ status: "rejected" })
@@ -581,6 +733,17 @@ export const workOrderRoutes = new Hono<{
       .update(workOrders)
       .set({ status: "customer_rejected", updatedAt: now })
       .where(eq(workOrders.id, id));
+
+    for (const sb of submittedBids) {
+      await createNotification(db, {
+        userId: sb.tradesmanId,
+        actorUserId: u.id,
+        type: "work_order_bid_rejected",
+        title: "Bid rejected",
+        body: wo.title,
+        href: `/work-orders/${encodeURIComponent(wo.id)}`,
+      });
+    }
 
     const [row] = await db.select().from(workOrders).where(eq(workOrders.id, id));
     return c.json({ workOrder: row });
@@ -702,6 +865,156 @@ export const workOrderRoutes = new Hono<{
 
     const [row] = await db.select().from(plannerTasks).where(eq(plannerTasks.id, taskId));
     return c.json({ task: row });
+  })
+  .get("/:id/appointments", async (c) => {
+    const id = c.req.param("id");
+    const u = c.get("user");
+    const db = createDb(c.env.DB);
+
+    const [wo] = await db.select().from(workOrders).where(eq(workOrders.id, id));
+    if (!wo) {
+      return c.json({ error: { code: "not_found", message: "Not found" } }, 404);
+    }
+    if (!canViewWorkOrder(u, wo)) {
+      return c.json({ error: { code: "forbidden", message: "Forbidden" } }, 403);
+    }
+
+    const rows = await db
+      .select()
+      .from(workOrderAppointments)
+      .where(eq(workOrderAppointments.workOrderId, id))
+      .orderBy(asc(workOrderAppointments.startsAt));
+    return c.json({ appointments: rows });
+  })
+  .post("/:id/appointments", requireTradesman, async (c) => {
+    const id = c.req.param("id");
+    const u = c.get("user");
+    let body: z.infer<typeof postAppointmentSchema>;
+    try {
+      body = postAppointmentSchema.parse(await c.req.json());
+    } catch (e) {
+      if (e instanceof z.ZodError) {
+        return c.json(
+          { error: { code: "validation_error", details: e.flatten() } },
+          400,
+        );
+      }
+      throw e;
+    }
+
+    const db = createDb(c.env.DB);
+    const [wo] = await db.select().from(workOrders).where(eq(workOrders.id, id));
+    if (!wo) {
+      return c.json({ error: { code: "not_found", message: "Not found" } }, 404);
+    }
+    if (!canMutatePlanner(u, wo)) {
+      return c.json({ error: { code: "forbidden", message: "Forbidden" } }, 403);
+    }
+
+    const startsAt = new Date(body.startsAt);
+    const endsAt = new Date(body.endsAt);
+    const nowMs = Date.now();
+    if (startsAt.getTime() < nowMs - 5 * 60_000) {
+      return c.json(
+        { error: { code: "validation_error", message: "Appointments must be in the future" } },
+        400,
+      );
+    }
+
+    const [conflict] = await db
+      .select()
+      .from(workOrderAppointments)
+      .where(
+        and(
+          eq(workOrderAppointments.tradesmanId, u.id),
+          lt(workOrderAppointments.startsAt, endsAt),
+          gt(workOrderAppointments.endsAt, startsAt),
+        ),
+      )
+      .limit(1);
+    if (conflict) {
+      return c.json(
+        {
+          error: {
+            code: "conflict",
+            message: "This time clashes with another appointment in your calendar.",
+          },
+        },
+        409,
+      );
+    }
+
+    const apptId = crypto.randomUUID();
+    const now = new Date();
+    await db.insert(workOrderAppointments).values({
+      id: apptId,
+      workOrderId: wo.id,
+      tradesmanId: u.id,
+      customerId: wo.customerId,
+      title: body.title.trim(),
+      notes: body.notes?.trim() ? body.notes.trim() : null,
+      startsAt,
+      endsAt,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const [row] = await db
+      .select()
+      .from(workOrderAppointments)
+      .where(eq(workOrderAppointments.id, apptId));
+    if (row) {
+      scheduleWorkOrderEmail(
+        c.env,
+        () => notifyWorkOrderAppointmentReminder(c.env, db, wo, row, "scheduled"),
+        "appointment_scheduled",
+      );
+    }
+    return c.json({ appointment: row }, 201);
+  })
+  .post("/:id/appointments/:appointmentId/remind", requireTradesman, async (c) => {
+    const id = c.req.param("id");
+    const appointmentId = c.req.param("appointmentId");
+    const u = c.get("user");
+    const db = createDb(c.env.DB);
+
+    const [wo] = await db.select().from(workOrders).where(eq(workOrders.id, id));
+    if (!wo) {
+      return c.json({ error: { code: "not_found", message: "Not found" } }, 404);
+    }
+    if (!canMutatePlanner(u, wo)) {
+      return c.json({ error: { code: "forbidden", message: "Forbidden" } }, 403);
+    }
+
+    const [appt] = await db
+      .select()
+      .from(workOrderAppointments)
+      .where(
+        and(
+          eq(workOrderAppointments.id, appointmentId),
+          eq(workOrderAppointments.workOrderId, id),
+          eq(workOrderAppointments.tradesmanId, u.id),
+        ),
+      );
+    if (!appt) {
+      return c.json({ error: { code: "not_found", message: "Appointment not found" } }, 404);
+    }
+
+    scheduleWorkOrderEmail(
+      c.env,
+      () => notifyWorkOrderAppointmentReminder(c.env, db, wo, appt, "manual"),
+      "appointment_reminder",
+    );
+    const now = new Date();
+    await db
+      .update(workOrderAppointments)
+      .set({ reminderSentAt: now, updatedAt: now })
+      .where(eq(workOrderAppointments.id, appointmentId));
+    const [row] = await db
+      .select()
+      .from(workOrderAppointments)
+      .where(eq(workOrderAppointments.id, appointmentId));
+    return c.json({ appointment: row });
   })
   .post("/:id/media", async (c) => {
     const id = c.req.param("id");
@@ -937,11 +1250,22 @@ export const workOrderRoutes = new Hono<{
 
     const [row] = await db.select().from(workOrders).where(eq(workOrders.id, id));
     if (row) {
+      const peerId = u.id === row.customerId ? row.assignedTradesmanId : row.customerId;
       scheduleWorkOrderEmail(
         c.env,
         () => notifyPeerWorkOrderStatus(c.env, db, row, body.status, u.id),
         "status_change",
       );
+      if (peerId) {
+        await createNotification(db, {
+          userId: peerId,
+          actorUserId: u.id,
+          type: "work_order_status_change",
+          title: `Job status updated: ${body.status.replace(/_/g, " ")}`,
+          body: row.title,
+          href: `/work-orders/${encodeURIComponent(row.id)}`,
+        });
+      }
     }
     return c.json({ workOrder: row });
   });

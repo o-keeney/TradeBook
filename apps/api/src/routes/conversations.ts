@@ -13,6 +13,7 @@ import {
   ensureConversationRow,
   loadConversationForUser,
 } from "../lib/conversation-access";
+import { createNotification } from "../lib/notifications";
 import { broadcastConversationEvent } from "../lib/conversation-realtime";
 import type { UserRow } from "../lib/public-user";
 import { canPostJobMessage } from "../lib/work-order-access";
@@ -253,6 +254,18 @@ export const conversationRoutes = new Hono<{
       .update(conversations)
       .set({ updatedAt: now })
       .where(eq(conversations.id, id));
+
+    const recipientId = u.id === wo.customerId ? wo.assignedTradesmanId : wo.customerId;
+    if (recipientId) {
+      await createNotification(db, {
+        userId: recipientId,
+        actorUserId: u.id,
+        type: "message_new",
+        title: "New message",
+        body: `${wo.title}: ${body.body.slice(0, 120)}`,
+        href: `/messages/${encodeURIComponent(id)}`,
+      });
+    }
 
     const [row] = await db
       .select()

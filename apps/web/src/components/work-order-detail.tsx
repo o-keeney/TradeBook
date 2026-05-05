@@ -33,6 +33,17 @@ type JobUpdateRow = {
   createdAt: string | number | Date;
 };
 
+type WorkOrderBidRow = {
+  id: string;
+  workOrderId: string;
+  tradesmanId: string;
+  estimatedCost: number | null;
+  estimatedTimeline: string | null;
+  notes: string | null;
+  status: "submitted" | "rejected" | "accepted";
+  createdAt: string | number | Date;
+};
+
 function formatDateTime(v: unknown): string {
   if (v == null) return "";
   const d = typeof v === "number" ? new Date(v) : new Date(String(v));
@@ -202,6 +213,31 @@ function isLikelyImageMediaUrl(url: string): boolean {
   return /\.(jpe?g|png|webp|avif)(\?|$)/i.test(u);
 }
 
+function mediaUploaderMeta(
+  wo: WorkOrderRow,
+  authorId: string,
+): { label: string; className: string } {
+  if (authorId === wo.customerId) {
+    return {
+      label: "Customer upload",
+      className:
+        "border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-200",
+    };
+  }
+  if (wo.assignedTradesmanId && authorId === wo.assignedTradesmanId) {
+    return {
+      label: "Provider upload",
+      className:
+        "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200",
+    };
+  }
+  return {
+    label: "Photo upload",
+    className:
+      "border-neutral-200 bg-neutral-100 text-neutral-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300",
+  };
+}
+
 export function WorkOrderDetail() {
   const params = useParams();
   const router = useRouter();
@@ -216,9 +252,24 @@ export function WorkOrderDetail() {
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoErr, setPhotoErr] = useState<string | null>(null);
   const [rejectBusy, setRejectBusy] = useState(false);
+  const [respondBusy, setRespondBusy] = useState<null | "accept" | "decline">(null);
+  const [respondErr, setRespondErr] = useState<string | null>(null);
   const [jobConversationId, setJobConversationId] = useState<string | null>(null);
   const [jobConvLoading, setJobConvLoading] = useState(false);
   const [jobConvErr, setJobConvErr] = useState<string | null>(null);
+  const [jobConvUnreadCount, setJobConvUnreadCount] = useState(0);
+  const [expandedImageSrc, setExpandedImageSrc] = useState<string | null>(null);
+  const [bidEstimatedCost, setBidEstimatedCost] = useState("");
+  const [bidEstimatedTimeline, setBidEstimatedTimeline] = useState("");
+  const [bidNotes, setBidNotes] = useState("");
+  const [bidBusy, setBidBusy] = useState(false);
+  const [bidMsg, setBidMsg] = useState<string | null>(null);
+  const [customerBids, setCustomerBids] = useState<WorkOrderBidRow[]>([]);
+  const [customerBidsOpen, setCustomerBidsOpen] = useState(true);
+  const [customerBidsLoading, setCustomerBidsLoading] = useState(false);
+  const [customerBidsErr, setCustomerBidsErr] = useState<string | null>(null);
+  const [awardBusyBidId, setAwardBusyBidId] = useState<string | null>(null);
+  const [rejectBidBusyId, setRejectBidBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -266,6 +317,24 @@ export function WorkOrderDetail() {
         setReviewInfo(rr.ok ? ((await rr.json()) as ForWorkOrderReviewJson) : null);
       } else {
         setReviewInfo(null);
+      }
+
+      if (woRow && meUser?.role === "customer" && meUser.id === woRow.customerId && woRow.submissionType === "open_bid") {
+        setCustomerBidsLoading(true);
+        setCustomerBidsErr(null);
+        const bidsRes = await apiFetch(`/api/work-orders/${encodeURIComponent(id)}/bids`);
+        if (bidsRes.ok) {
+          const bj = (await bidsRes.json()) as { bids?: WorkOrderBidRow[] };
+          setCustomerBids(bj.bids ?? []);
+        } else {
+          setCustomerBids([]);
+          setCustomerBidsErr("Could not load quotes.");
+        }
+        setCustomerBidsLoading(false);
+      } else {
+        setCustomerBids([]);
+        setCustomerBidsErr(null);
+        setCustomerBidsLoading(false);
       }
 
       if (tlRes.ok) {
@@ -341,6 +410,52 @@ export function WorkOrderDetail() {
     };
   }, [id, workOrder, me]);
 
+  useEffect(() => {
+    const woRow = workOrder;
+    const canShowMessages =
+      me != null &&
+      woRow != null &&
+      Boolean(woRow.assignedTradesmanId) &&
+      (me.id === woRow.customerId || me.id === woRow.assignedTradesmanId);
+    if (!jobConversationId || !canShowMessages) {
+      setJobConvUnreadCount(0);
+      return;
+    }
+    let cancelled = false;
+    const loadUnread = async () => {
+      try {
+        const res = await apiFetch("/api/conversations");
+        if (!res.ok) {
+          if (!cancelled) setJobConvUnreadCount(0);
+          return;
+        }
+        const j = (await res.json()) as { conversations?: Array<{ id: string; unreadCount?: number }> };
+        if (cancelled) return;
+        const conv = (j.conversations ?? []).find((c) => c.id === jobConversationId);
+        setJobConvUnreadCount(Math.max(0, conv?.unreadCount ?? 0));
+      } catch {
+        if (!cancelled) setJobConvUnreadCount(0);
+      }
+    };
+    void loadUnread();
+    const timer = window.setInterval(() => {
+      void loadUnread();
+    }, 15000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [jobConversationId, me, workOrder]);
+
+  useEffect(() => {
+    if (!expandedImageSrc) return;
+    const onKeyDown = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") setExpandedImageSrc(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [expandedImageSrc]);
+
   if (!id) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-10">
@@ -386,6 +501,23 @@ export function WorkOrderDetail() {
     Boolean(wo.assignedTradesmanId) &&
     (me.id === wo.customerId || me.id === wo.assignedTradesmanId);
 
+  const canRespondToDirectJob =
+    me?.role === "tradesman" &&
+    me.id === wo.assignedTradesmanId &&
+    wo.submissionType === "direct" &&
+    wo.status === "pending";
+  const canSubmitOpenBid =
+    me?.role === "tradesman" &&
+    wo.submissionType === "open_bid" &&
+    (wo.status === "open_bidding" || wo.status === "quotes_submitted") &&
+    me.id !== wo.customerId;
+  const showCustomerQuotesMenu =
+    me?.role === "customer" &&
+    me.id === wo.customerId &&
+    wo.submissionType === "open_bid";
+  const pendingQuotesCount = customerBids.filter((b) => b.status === "submitted").length;
+  const hasPendingQuotes = pendingQuotesCount > 0;
+
   const rejectOpenQuotes = async () => {
     if (!showRejectQuotes || rejectBusy) return;
     if (
@@ -415,6 +547,147 @@ export function WorkOrderDetail() {
       alert("Network error.");
     } finally {
       setRejectBusy(false);
+    }
+  };
+
+  const respondToDirectJob = async (action: "accept" | "decline") => {
+    if (!canRespondToDirectJob || respondBusy) return;
+    setRespondBusy(action);
+    setRespondErr(null);
+    try {
+      const res = await apiFetch(`/api/work-orders/${wo.id}/respond`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      if (!res.ok) {
+        const raw = await res.text();
+        let msg = "Could not update the job response.";
+        try {
+          const j = JSON.parse(raw) as { error?: { message?: string } };
+          if (j.error?.message) msg = j.error.message;
+        } catch {
+          /* ignore */
+        }
+        setRespondErr(msg);
+        return;
+      }
+      await load();
+    } catch {
+      setRespondErr("Network error.");
+    } finally {
+      setRespondBusy(null);
+    }
+  };
+  const submitOpenBid = async () => {
+    if (!canSubmitOpenBid || bidBusy) return;
+    setBidBusy(true);
+    setBidMsg(null);
+    try {
+      const costTrim = bidEstimatedCost.trim();
+      let estimatedCost: number | null | undefined = undefined;
+      if (costTrim.length > 0) {
+        const n = Number.parseFloat(costTrim.replace(",", "."));
+        if (!Number.isFinite(n) || n < 0) {
+          setBidMsg("Enter a valid non-negative amount.");
+          setBidBusy(false);
+          return;
+        }
+        estimatedCost = n;
+      }
+      const res = await apiFetch(`/api/work-orders/${wo.id}/bids`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          estimatedCost,
+          estimatedTimeline: bidEstimatedTimeline.trim() || undefined,
+          notes: bidNotes.trim() || undefined,
+        }),
+      });
+      const raw = await res.text();
+      if (!res.ok) {
+        let msg = "Could not submit bid.";
+        try {
+          const j = JSON.parse(raw) as { error?: { message?: string } };
+          if (j.error?.message) msg = j.error.message;
+        } catch {
+          /* ignore */
+        }
+        setBidMsg(msg);
+        return;
+      }
+      setBidMsg("Bid submitted.");
+      setBidEstimatedCost("");
+      setBidEstimatedTimeline("");
+      setBidNotes("");
+      await load();
+    } catch {
+      setBidMsg("Network error.");
+    } finally {
+      setBidBusy(false);
+    }
+  };
+
+  const awardBid = async (bidId: string) => {
+    if (!showCustomerQuotesMenu || awardBusyBidId) return;
+    setAwardBusyBidId(bidId);
+    setCustomerBidsErr(null);
+    try {
+      const res = await apiFetch(`/api/work-orders/${wo.id}/award`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bidId }),
+      });
+      if (!res.ok) {
+        const raw = await res.text();
+        let msg = "Could not accept quote.";
+        try {
+          const j = JSON.parse(raw) as { error?: { message?: string } };
+          if (j.error?.message) msg = j.error.message;
+        } catch {
+          /* ignore */
+        }
+        setCustomerBidsErr(msg);
+        return;
+      }
+      await load();
+    } catch {
+      setCustomerBidsErr("Network error.");
+    } finally {
+      setAwardBusyBidId(null);
+    }
+  };
+
+  const rejectBid = async (bidId: string) => {
+    if (!showCustomerQuotesMenu || rejectBidBusyId) return;
+    if (!window.confirm("Reject this quote? The provider can submit a new quote while bidding remains open.")) {
+      return;
+    }
+    setRejectBidBusyId(bidId);
+    setCustomerBidsErr(null);
+    try {
+      const res = await apiFetch(`/api/work-orders/${wo.id}/reject-quote`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bidId }),
+      });
+      if (!res.ok) {
+        const raw = await res.text();
+        let msg = "Could not reject quote.";
+        try {
+          const j = JSON.parse(raw) as { error?: { message?: string } };
+          if (j.error?.message) msg = j.error.message;
+        } catch {
+          /* ignore */
+        }
+        setCustomerBidsErr(msg);
+        return;
+      }
+      await load();
+    } catch {
+      setCustomerBidsErr("Network error.");
+    } finally {
+      setRejectBidBusyId(null);
     }
   };
 
@@ -505,28 +778,138 @@ export function WorkOrderDetail() {
             </p>
           </div>
         ) : null}
+        {canRespondToDirectJob ? (
+          <div className="mt-5 border-t border-black/5 pt-4 dark:border-white/10">
+            <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200">
+              This direct job request is waiting for your response.
+            </p>
+            {respondErr ? (
+              <p className="mt-2 text-sm text-red-600 dark:text-red-400" role="alert">
+                {respondErr}
+              </p>
+            ) : null}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={respondBusy !== null}
+                onClick={() => void respondToDirectJob("accept")}
+                className="rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-neutral-800 disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
+              >
+                {respondBusy === "accept" ? "Accepting…" : "Accept job"}
+              </button>
+              <button
+                type="button"
+                disabled={respondBusy !== null}
+                onClick={() => void respondToDirectJob("decline")}
+                className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-800 shadow-sm hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
+              >
+                {respondBusy === "decline" ? "Declining…" : "Decline job"}
+              </button>
+            </div>
+          </div>
+        ) : null}
+        {canSubmitOpenBid ? (
+          <div className="mt-5 border-t border-black/5 pt-4 dark:border-white/10">
+            <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200">
+              Submit your bid for this open job
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                Estimated cost (optional)
+                <input
+                  value={bidEstimatedCost}
+                  onChange={(e) => setBidEstimatedCost(e.target.value)}
+                  inputMode="decimal"
+                  placeholder="e.g. 1500"
+                  className="mt-1.5 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 shadow-sm focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
+                />
+              </label>
+              <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                Timeline (optional)
+                <input
+                  value={bidEstimatedTimeline}
+                  onChange={(e) => setBidEstimatedTimeline(e.target.value)}
+                  placeholder="e.g. 2-3 days"
+                  maxLength={500}
+                  className="mt-1.5 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 shadow-sm focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
+                />
+              </label>
+              <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 sm:col-span-2">
+                Notes (optional)
+                <textarea
+                  value={bidNotes}
+                  onChange={(e) => setBidNotes(e.target.value)}
+                  rows={3}
+                  maxLength={4000}
+                  placeholder="Add exclusions, assumptions, and availability."
+                  className="mt-1.5 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 shadow-sm focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
+                />
+              </label>
+            </div>
+            <div className="mt-3 flex items-center gap-3">
+              <button
+                type="button"
+                disabled={bidBusy}
+                onClick={() => void submitOpenBid()}
+                className="rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-neutral-800 disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
+              >
+                {bidBusy ? "Submitting…" : "Submit bid"}
+              </button>
+              {showJobMessagesCta && jobConversationId ? (
+                <Link
+                  href={`/messages/${encodeURIComponent(jobConversationId)}`}
+                  className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-800 shadow-sm hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
+                >
+                  Message customer
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  className="rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm font-medium text-neutral-500 opacity-80 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400"
+                  title="Messaging becomes available after a provider is assigned"
+                >
+                  Message customer
+                </button>
+              )}
+              {bidMsg ? (
+                <p
+                  className={`text-sm ${bidMsg === "Bid submitted." ? "text-emerald-700 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}
+                  role={bidMsg === "Bid submitted." ? "status" : "alert"}
+                >
+                  {bidMsg}
+                </p>
+              ) : null}
+            </div>
+            {!showJobMessagesCta ? (
+              <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+                Messaging is available once a provider is assigned to the job.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+        <div className="mt-5 border-t border-black/5 pt-4 dark:border-white/10">
+          <dl className="grid gap-4 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-wide opacity-75">Location</dt>
+              <dd className="mt-1 font-medium text-neutral-900 dark:text-neutral-100">{wo.locationAddress}</dd>
+              <dd className="mt-0.5 text-neutral-600 dark:text-neutral-300">{wo.locationPostcode}</dd>
+            </div>
+            {wo.budgetText?.trim() ? (
+              <div>
+                <dt className="text-xs font-semibold uppercase tracking-wide opacity-75">Budget</dt>
+                <dd className="mt-1 font-medium text-neutral-900 dark:text-neutral-100">
+                  {formatBudgetDisplay(wo.budgetText.trim())}
+                </dd>
+              </div>
+            ) : null}
+          </dl>
+        </div>
       </header>
 
       <section className="mb-10 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-950 sm:p-6">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-          Location
-        </h2>
-        <p className="mt-2 text-neutral-800 dark:text-neutral-200">{wo.locationAddress}</p>
-        <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">{wo.locationPostcode}</p>
-      </section>
-
-      {wo.budgetText?.trim() ? (
-        <section className="mb-10 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-950 sm:p-6">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-            Budget
-          </h2>
-          <p className="mt-2 text-neutral-800 dark:text-neutral-200">{formatBudgetDisplay(wo.budgetText.trim())}</p>
-        </section>
-      ) : null}
-
-      <section className="mb-10">
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Description</h2>
-        <div className="mt-4 max-w-none text-base leading-relaxed text-neutral-700 dark:text-neutral-300">
+        <div className="mt-4 rounded-xl border border-neutral-200 bg-neutral-50 p-4 max-w-none text-base leading-relaxed text-neutral-700 dark:border-neutral-700 dark:bg-neutral-900/50 dark:text-neutral-300">
           {wo.description.split("\n").map((para, i) => (
             <p key={i} className={i > 0 ? "mt-4" : ""}>
               {para}
@@ -535,29 +918,201 @@ export function WorkOrderDetail() {
         </div>
       </section>
 
+      {showCustomerQuotesMenu ? (
+        <section
+          className={`mb-10 rounded-2xl p-5 sm:p-6 ${
+            hasPendingQuotes
+              ? "border border-amber-300/80 bg-gradient-to-br from-amber-50 via-white to-white shadow-[0_10px_30px_-12px_rgba(217,119,6,0.45)] dark:border-amber-600/50 dark:from-amber-950/30 dark:via-neutral-950 dark:to-neutral-950"
+              : "border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-950"
+          }`}
+        >
+          <button
+            type="button"
+            onClick={() => setCustomerBidsOpen((v) => !v)}
+            className={`group flex w-full items-center justify-between rounded-xl px-4 py-3 text-left transition ${
+              hasPendingQuotes
+                ? "border border-amber-300/70 bg-white/90 shadow-sm hover:border-amber-400 hover:shadow dark:border-amber-600/40 dark:bg-neutral-900/80 dark:hover:border-amber-500"
+                : "border border-neutral-200 bg-white shadow-sm hover:border-neutral-300 dark:border-neutral-700 dark:bg-neutral-900 dark:hover:border-neutral-600"
+            }`}
+            aria-expanded={customerBidsOpen}
+          >
+            <span className="flex items-center gap-3">
+              <span
+                className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${
+                  hasPendingQuotes
+                    ? "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300"
+                    : "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300"
+                }`}
+              >
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h6m-6 4h10" />
+                </svg>
+              </span>
+              <span>
+                <span className="block text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+                  Quotes menu
+                </span>
+                <span className="block text-xs text-neutral-600 dark:text-neutral-400">
+                  Review and accept provider quotes quickly
+                </span>
+              </span>
+            </span>
+            <span className="flex items-center gap-2">
+              <span
+                className={`rounded-full px-2.5 py-1 text-xs font-semibold shadow-sm ${
+                  hasPendingQuotes
+                    ? "bg-amber-500 text-white dark:bg-amber-400 dark:text-amber-950"
+                    : "bg-neutral-200 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-100"
+                }`}
+              >
+                {customerBids.length}
+              </span>
+              <span className="text-sm font-medium text-neutral-600 dark:text-neutral-300">
+                {customerBidsOpen ? "Hide" : "Show"}
+              </span>
+              <svg
+                viewBox="0 0 24 24"
+                className={`h-4 w-4 text-neutral-500 transition-transform duration-200 dark:text-neutral-400 ${customerBidsOpen ? "rotate-180" : ""}`}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
+              </svg>
+            </span>
+          </button>
+
+          {customerBidsOpen ? (
+            <div
+              className={`mt-4 rounded-xl p-4 ${
+                hasPendingQuotes
+                  ? "border border-amber-200/70 bg-white/90 dark:border-amber-600/30 dark:bg-neutral-950/70"
+                  : "border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-950"
+              }`}
+            >
+              {customerBidsErr ? (
+                <p className="mb-3 text-sm text-red-600 dark:text-red-400" role="alert">
+                  {customerBidsErr}
+                </p>
+              ) : null}
+              {customerBidsLoading ? (
+                <p className="text-sm text-neutral-500">Loading quotes…</p>
+              ) : customerBids.length === 0 ? (
+                <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                  No quotes submitted yet.
+                </p>
+              ) : (
+                <ul className="space-y-3">
+                  {customerBids.map((b) => (
+                    <li
+                      key={b.id}
+                      className="rounded-xl border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-700 dark:bg-neutral-900/50"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                          Quote from provider
+                        </p>
+                        <span className="rounded-full border border-neutral-300 px-2 py-0.5 text-xs text-neutral-600 dark:border-neutral-600 dark:text-neutral-300">
+                          {b.status}
+                        </span>
+                      </div>
+                      {b.estimatedCost != null ? (
+                        <p className="mt-2 text-sm text-neutral-700 dark:text-neutral-300">
+                          Estimated cost: {new Intl.NumberFormat("en-IE", { style: "currency", currency: "EUR" }).format(b.estimatedCost)}
+                        </p>
+                      ) : null}
+                      {b.estimatedTimeline?.trim() ? (
+                        <p className="mt-1 text-sm text-neutral-700 dark:text-neutral-300">
+                          Timeline: {b.estimatedTimeline.trim()}
+                        </p>
+                      ) : null}
+                      {b.notes?.trim() ? (
+                        <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-700 dark:text-neutral-300">
+                          {b.notes.trim()}
+                        </p>
+                      ) : null}
+                      {b.status === "submitted" && showRejectQuotes ? (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            disabled={awardBusyBidId !== null || rejectBidBusyId !== null}
+                            onClick={() => void awardBid(b.id)}
+                            className="rounded-lg bg-neutral-900 px-3 py-2 text-xs font-medium text-white shadow-sm hover:bg-neutral-800 disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
+                          >
+                            {awardBusyBidId === b.id ? "Accepting…" : "Accept quote"}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={awardBusyBidId !== null || rejectBidBusyId !== null}
+                            onClick={() => void rejectBid(b.id)}
+                            className="rounded-lg border border-red-300 bg-white px-3 py-2 text-xs font-medium text-red-700 shadow-sm hover:bg-red-50 disabled:opacity-50 dark:border-red-500/50 dark:bg-neutral-950 dark:text-red-300 dark:hover:bg-red-950/30"
+                          >
+                            {rejectBidBusyId === b.id ? "Rejecting…" : "Reject quote"}
+                          </button>
+                        </div>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
       {showJobMessagesCta ? (
-        <section className="mb-10 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-950 sm:p-6">
-          <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Job messages</h2>
-          <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
-            Private chat between you and the other party on this job. It does not appear on the public job timeline.
-          </p>
+        <>
           {jobConvLoading ? (
-            <p className="mt-3 text-sm text-neutral-500">Opening thread…</p>
+            <section className="mb-8">
+              <p className="text-sm text-neutral-500">Opening messages…</p>
+            </section>
           ) : jobConvErr ? (
-            <p className="mt-3 text-sm text-red-600 dark:text-red-400" role="alert">
-              {jobConvErr}
-            </p>
+            <section className="mb-8">
+              <p className="text-sm text-red-600 dark:text-red-400" role="alert">
+                {jobConvErr}
+              </p>
+            </section>
           ) : jobConversationId ? (
             <Link
               href={`/messages/${encodeURIComponent(jobConversationId)}`}
-              className="mt-4 inline-flex rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
+              aria-label={
+                jobConvUnreadCount > 0
+                  ? `Open messages (${jobConvUnreadCount} unread)`
+                  : "Open messages"
+              }
+              title={
+                jobConvUnreadCount > 0
+                  ? `${jobConvUnreadCount} unread message${jobConvUnreadCount === 1 ? "" : "s"}`
+                  : "Open messages"
+              }
+              className="fixed bottom-6 right-6 z-40 inline-flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-3 text-white shadow-[0_12px_30px_-10px_rgba(79,70,229,0.7)] ring-2 ring-indigo-300/70 transition hover:scale-[1.03] hover:bg-indigo-500 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-300 dark:bg-indigo-500 dark:ring-indigo-300/60 dark:hover:bg-indigo-400"
             >
-              Open messages
+              <span className="absolute -inset-1 -z-10 animate-pulse rounded-full bg-indigo-500/30" aria-hidden />
+              {jobConvUnreadCount > 0 ? (
+                <>
+                  <span
+                    className="absolute -right-1 -top-1 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white shadow ring-2 ring-white dark:ring-neutral-900"
+                    aria-hidden
+                  >
+                    {jobConvUnreadCount > 9 ? "9+" : jobConvUnreadCount}
+                  </span>
+                  <span
+                    className="absolute -right-1 -top-1 h-5 w-5 animate-ping rounded-full bg-red-400/75"
+                    aria-hidden
+                  />
+                </>
+              ) : null}
+              <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"
+                />
+              </svg>
+              <span className="text-sm font-semibold tracking-wide">Messages</span>
             </Link>
-          ) : (
-            <p className="mt-3 text-sm text-neutral-500">No message thread yet.</p>
-          )}
-        </section>
+          ) : null}
+        </>
       ) : null}
 
       <WorkOrderPlannerSection
@@ -600,51 +1155,108 @@ export function WorkOrderDetail() {
         <CustomerReviewPanel workOrderId={wo.id} info={reviewInfo} onChanged={load} />
       ) : null}
 
-      <section aria-labelledby="timeline-heading" className="border-t border-neutral-200 pt-10 dark:border-neutral-800">
+      <section
+        aria-labelledby="timeline-heading"
+        className="rounded-2xl border border-neutral-200/80 bg-gradient-to-b from-neutral-50/70 to-white p-5 dark:border-neutral-800 dark:from-neutral-950/70 dark:to-neutral-950 sm:p-6"
+      >
         <h2 id="timeline-heading" className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
           Timeline
         </h2>
         {updates.length === 0 ? (
           <p className="mt-3 text-sm text-neutral-500">No updates on this job yet.</p>
         ) : (
-          <ol className="mt-6 space-y-4">
+          <ol className="mt-5 space-y-3">
             {updates.map((u) => (
+              (() => {
+                const isMediaUpload = u.updateType === "media_upload";
+                const uploaderMeta = isMediaUpload ? mediaUploaderMeta(wo, u.authorId) : null;
+                return (
               <li
                 key={u.id}
-                className="relative rounded-xl border border-neutral-200 bg-neutral-50/80 p-4 dark:border-neutral-800 dark:bg-neutral-900/50"
+                className="relative overflow-hidden rounded-xl border border-neutral-200 bg-white/95 p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/80"
               >
+                <span className="absolute inset-y-0 left-0 w-1 bg-neutral-200/80 dark:bg-neutral-700/80" aria-hidden />
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                    {u.updateType.replace(/_/g, " ")}
+                  <span className="pl-1 text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                    {isMediaUpload ? uploaderMeta?.label : u.updateType.replace(/_/g, " ")}
                   </span>
                   <time className="text-xs text-neutral-400 dark:text-neutral-500" dateTime={String(u.createdAt)}>
                     {formatDateTime(u.createdAt)}
                   </time>
                 </div>
+                {isMediaUpload && uploaderMeta ? (
+                  <span
+                    className={`mt-2 ml-1 inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${uploaderMeta.className}`}
+                  >
+                    {uploaderMeta.label}
+                  </span>
+                ) : null}
                 {u.content?.trim() ? (
-                  <p className="mt-2 text-sm text-neutral-700 dark:text-neutral-300">{u.content}</p>
+                  <p className="mt-2 pl-1 text-sm text-neutral-700 dark:text-neutral-300">{u.content}</p>
                 ) : null}
                 {u.mediaUrls?.length ? (
-                  <ul className="mt-3 flex flex-wrap gap-2">
+                  <ul className="mt-3 flex flex-wrap gap-3 pl-1">
                     {u.mediaUrls.filter(isLikelyImageMediaUrl).map((src) => (
-                      <li key={src} className="relative h-40 w-40 overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700">
-                        <Image
-                          src={src}
-                          alt="Job photo"
-                          fill
-                          className="object-cover"
-                          sizes="160px"
-                          unoptimized
-                        />
+                      <li
+                        key={src}
+                        className="relative h-44 w-44 overflow-hidden rounded-xl border border-neutral-200 shadow-sm transition hover:shadow-md dark:border-neutral-700"
+                      >
+                        <button
+                          type="button"
+                          aria-label="Open photo"
+                          onClick={() => setExpandedImageSrc(src)}
+                          className="group relative block h-full w-full cursor-zoom-in"
+                        >
+                          <Image
+                            src={src}
+                            alt="Job photo"
+                            fill
+                            className="object-cover transition duration-200 group-hover:scale-[1.03]"
+                            sizes="176px"
+                            unoptimized
+                          />
+                        </button>
                       </li>
                     ))}
                   </ul>
                 ) : null}
               </li>
+                );
+              })()
             ))}
           </ol>
         )}
       </section>
+      {expandedImageSrc ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Expanded job photo"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4"
+          onClick={() => setExpandedImageSrc(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setExpandedImageSrc(null)}
+            className="absolute right-4 top-4 rounded-md bg-black/50 px-3 py-1.5 text-sm font-medium text-white hover:bg-black/70"
+          >
+            Close
+          </button>
+          <div
+            className="relative h-[80vh] w-full max-w-6xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Image
+              src={expandedImageSrc}
+              alt="Expanded job photo"
+              fill
+              className="object-contain"
+              sizes="100vw"
+              unoptimized
+            />
+          </div>
+        </div>
+      ) : null}
     </article>
   );
 }

@@ -32,7 +32,7 @@ export default async function LoginPage({
   return (
     <PageShell
       title="Log in"
-      description="Sign in with the email and password you used to register."
+      description="Sign in with your email and password."
     >
       {sp.erased === "1" ? (
         <p

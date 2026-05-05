@@ -6,6 +6,13 @@ import { resolveAppOrigin } from "./app-origin";
 import { sendTransactionalEmail } from "./brevo-email";
 
 type WorkOrderRow = typeof workOrders.$inferSelect;
+type AppointmentForEmail = {
+  id: string;
+  title: string;
+  startsAt: Date | number | string;
+  endsAt: Date | number | string;
+  notes?: string | null;
+};
 
 function esc(s: string): string {
   return s
@@ -18,6 +25,16 @@ function esc(s: string): string {
 function jobUrl(env: Env, workOrderId: string): string {
   const base = resolveAppOrigin(env);
   return `${base}/work-orders/${workOrderId}`;
+}
+
+function formatWhenRange(startsAt: Date | number | string, endsAt: Date | number | string): string {
+  const s = new Date(startsAt);
+  const e = new Date(endsAt);
+  if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return "Scheduled time unavailable";
+  const date = s.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  const from = s.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  const to = e.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  return `${date} · ${from} to ${to}`;
 }
 
 async function userEmail(db: Db, userId: string): Promise<string | null> {
@@ -131,4 +148,31 @@ export async function notifyPeerWorkOrderStatus(
 <p><strong>${esc(wo.title)}</strong></p>
 <p><a href="${jobUrl(env, wo.id)}">Open job</a></p>`;
   await sendTransactionalEmail(env, { to, subject, html });
+}
+
+export async function notifyWorkOrderAppointmentReminder(
+  env: Env,
+  db: Db,
+  wo: WorkOrderRow,
+  appt: AppointmentForEmail,
+  mode: "scheduled" | "manual",
+): Promise<void> {
+  if (!wo.assignedTradesmanId) return;
+  const recipients = [wo.customerId, wo.assignedTradesmanId];
+  const whenLine = formatWhenRange(appt.startsAt, appt.endsAt);
+  const subjectPrefix = mode === "manual" ? "Reminder" : "Appointment scheduled";
+  const subject = `${subjectPrefix}: ${appt.title.slice(0, 72)}`;
+  const notesLine = appt.notes?.trim()
+    ? `<p><strong>Notes:</strong> ${esc(appt.notes.trim())}</p>`
+    : "";
+  const html = `<p><strong>${esc(appt.title)}</strong></p>
+<p>${esc(whenLine)}</p>
+${notesLine}
+<p>Job: ${esc(wo.title)}</p>
+<p><a href="${jobUrl(env, wo.id)}">Open work order</a></p>`;
+  for (const userId of recipients) {
+    const to = await userEmail(db, userId);
+    if (!to) continue;
+    await sendTransactionalEmail(env, { to, subject, html });
+  }
 }

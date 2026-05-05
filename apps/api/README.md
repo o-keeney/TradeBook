@@ -53,7 +53,7 @@ Uncomment `[[kv_namespaces]]` in `wrangler.toml` and set `binding = "RATE_LIMIT_
 |--------------------|------------------------|----------------------|
 | `BREVO_API_KEY` | `wrangler secret put BREVO_API_KEY` | Optional: `.dev.vars` (see `.dev.vars.example`) |
 | `BREVO_SENDER_EMAIL`, `BREVO_SENDER_NAME` | `[vars]` in `wrangler.toml`, dashboard **Variables**, or `.dev.vars` | `.dev.vars` or `[vars]` |
-| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` (future) | `wrangler secret put …` | `.dev.vars` only |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | `wrangler secret put …` | `.dev.vars` only |
 | `BUDGETSMS_API_KEY` or similar (future) | `wrangler secret put …` | `.dev.vars` only |
 | `MAPBOX_*` on the **Worker** (future server geocode) | Secret if it’s a private token | `.dev.vars` |
 | `CORS_ORIGINS`, `APP_ORIGIN`, `ENVIRONMENT` | `[vars]` / dashboard (non-secret) | `[vars]` in `wrangler.toml` |
@@ -149,3 +149,25 @@ The API sends **email verification** and **password reset** mail when `BREVO_API
 4. Prefer a subdomain (e.g. `noreply@mail.example.com`) aligned with Brevo’s instructions.
 
 **Not implemented yet:** digest/summary emails — still product TODO.
+
+## Stripe billing (tradesman subscriptions)
+
+Tradesman billing now uses Stripe Checkout + Billing Portal and a webhook endpoint:
+
+- `POST /api/billing/tradesman/checkout-session`
+- `POST /api/billing/tradesman/portal-session`
+- `POST /api/billing/stripe/webhook`
+
+Set secrets:
+
+```bash
+cd apps/api
+npx wrangler secret put STRIPE_SECRET_KEY
+npx wrangler secret put STRIPE_WEBHOOK_SECRET
+```
+
+Webhook target in Stripe dashboard should point to:
+
+- `https://<your-api-origin>/api/billing/stripe/webhook`
+
+Current offer: first 30 days free for new tradesman subscriptions (trial period).

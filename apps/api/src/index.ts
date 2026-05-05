@@ -9,10 +9,12 @@ import { csrfProtectionMiddleware, sessionCsrfBootstrapMiddleware } from "./midd
 import { requestLogMiddleware } from "./middleware/request-log";
 import { adminRoutes } from "./routes/admin";
 import { authRoutes } from "./routes/auth";
+import { billingRoutes } from "./routes/billing";
 import { handleConversationWebSocket } from "./routes/conversation-ws";
 import { conversationRoutes } from "./routes/conversations";
 import { gdprRoutes } from "./routes/gdpr";
 import { portfolioManageRoutes } from "./routes/portfolio-manage";
+import { notificationsRoutes } from "./routes/notifications";
 import { publicPortfolioRoutes } from "./routes/portfolio-public";
 import { publicSiteRoutes } from "./routes/public-site";
 import { reviewRoutes } from "./routes/reviews";
@@ -72,12 +74,14 @@ app.route("/api", publicPortfolioRoutes);
 app.route("/api/public", publicSiteRoutes);
 app.route("/api/tradesmen", tradesmenRoutes);
 app.route("/api/auth", authRoutes);
+app.route("/api/billing", billingRoutes);
 app.route("/api/users", userRoutes);
 app.route("/api/gdpr", gdprRoutes);
 app.route("/api/admin", adminRoutes);
 app.route("/api/portfolio", portfolioManageRoutes);
 app.route("/api/work-orders", workOrderRoutes);
 app.route("/api/reviews", reviewRoutes);
+app.route("/api/notifications", notificationsRoutes);
 /** WebSocket upgrade (ticket auth); must stay on the main app so it is not behind `requireUser` cookie-only middleware. */
 app.get("/api/conversations/ws", handleConversationWebSocket);
 app.route("/api/conversations", conversationRoutes);

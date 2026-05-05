@@ -30,18 +30,25 @@ function FeatureList({ items }: { items: readonly string[] }) {
   );
 }
 
-async function fetchTradesmanMonthlyEuros(): Promise<number> {
+async function fetchSiteConfig(): Promise<{ tradesmanMonthlyEuros: number; firstMonthFreeDays: number }> {
   const base = getPublicApiUrl().replace(/\/$/, "");
   try {
     const res = await fetch(`${base}/api/public/site-config`, {
       next: { revalidate: 60 },
     });
-    if (!res.ok) return 30;
-    const data = (await res.json()) as { tradesmanMonthlyEuros?: unknown };
+    if (!res.ok) return { tradesmanMonthlyEuros: 30, firstMonthFreeDays: 30 };
+    const data = (await res.json()) as {
+      tradesmanMonthlyEuros?: unknown;
+      firstMonthFreeDays?: unknown;
+    };
     const n = Number(data.tradesmanMonthlyEuros);
-    return Number.isFinite(n) && n >= 0 ? n : 30;
+    const days = Number(data.firstMonthFreeDays);
+    return {
+      tradesmanMonthlyEuros: Number.isFinite(n) && n >= 0 ? n : 30,
+      firstMonthFreeDays: Number.isFinite(days) && days > 0 ? Math.round(days) : 30,
+    };
   } catch {
-    return 30;
+    return { tradesmanMonthlyEuros: 30, firstMonthFreeDays: 30 };
   }
 }
 
@@ -58,7 +65,7 @@ const homeCardFootnoteClass =
   "rounded-xl bg-gradient-to-br from-indigo-50/90 to-white px-5 py-4 shadow-inner ring-1 ring-indigo-100/80 dark:from-neutral-900 dark:to-neutral-950 dark:ring-neutral-800";
 
 export default async function Home() {
-  const tradesmanMonthlyEuros = await fetchTradesmanMonthlyEuros();
+  const { tradesmanMonthlyEuros, firstMonthFreeDays } = await fetchSiteConfig();
 
   return (
     <div>
@@ -95,6 +102,9 @@ export default async function Home() {
                     </span>
                     <span className="text-sm font-medium text-[var(--muted)]">per month</span>
                   </div>
+                  <p className="mt-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                    First {firstMonthFreeDays} days free
+                  </p>
                 </div>
               </div>
             </div>

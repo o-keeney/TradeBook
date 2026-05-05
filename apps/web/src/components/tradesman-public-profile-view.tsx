@@ -319,7 +319,8 @@ export function TradesmanPublicProfileView({
   }, [profile.id, portfolioKey]);
 
   return (
-    <div className="space-y-0 text-neutral-900 dark:text-neutral-100">
+    <div className="space-y-6 text-neutral-900 dark:text-neutral-100">
+      <section className="rounded-2xl border border-neutral-200 bg-gradient-to-b from-white to-neutral-50 p-4 shadow-sm dark:border-neutral-800 dark:from-neutral-950 dark:to-neutral-900 sm:p-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
         <TradesmanProfileAvatar profile={profile} size="lg" />
         <div className="min-w-0 flex-1 space-y-3">
@@ -328,7 +329,7 @@ export function TradesmanPublicProfileView({
           profile.tradeCategories.map((t) => (
             <span
               key={t}
-              className="rounded-full bg-neutral-200 px-2.5 py-0.5 text-xs font-medium text-neutral-800 dark:bg-neutral-800 dark:text-neutral-200"
+              className="rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-xs font-medium text-neutral-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
             >
               {t}
             </span>
@@ -338,8 +339,10 @@ export function TradesmanPublicProfileView({
         )}
       </div>
 
-      <p className="text-sm font-medium">{formatRatingLine(profile.avgRating, profile.reviewCount)}</p>
-      <p className="mt-1 text-xs text-neutral-500">
+      <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200">
+        {formatRatingLine(profile.avgRating, profile.reviewCount)}
+      </p>
+      <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
         {profile.isAvailable ? "Available" : "Unavailable"} ·{" "}
         {profile.verificationStatus === "verified"
           ? "Verified"
@@ -354,7 +357,7 @@ export function TradesmanPublicProfileView({
       ) : null}
 
       {profile.contact?.email || profile.contact?.phone ? (
-        <div className="mt-3 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-900/50">
+        <div className="mt-3 rounded-xl border border-neutral-200 bg-white/90 px-3 py-2.5 text-sm shadow-sm dark:border-neutral-700 dark:bg-neutral-900/70">
           <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Contact</p>
           {profile.contact.email ? (
             <p className="mt-1">
@@ -376,16 +379,17 @@ export function TradesmanPublicProfileView({
       {profile.bio ? (
         <section className="mt-2 sm:mt-3">
           <h2 className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">About</h2>
-          <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-neutral-700 dark:text-neutral-300">
+          <p className="mt-2 whitespace-pre-wrap rounded-xl border border-neutral-200 bg-white/80 p-3 text-sm leading-relaxed text-neutral-700 dark:border-neutral-700 dark:bg-neutral-900/60 dark:text-neutral-300">
             {profile.bio}
           </p>
         </section>
       ) : null}
         </div>
       </div>
+      </section>
 
       {profile.reviewCount > 0 ? (
-        <section className="mt-6 border-t border-neutral-200 pt-5 dark:border-neutral-800">
+        <section className="rounded-2xl border border-neutral-200 bg-white/90 p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-950/80 sm:p-5">
           <h2 className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">Recent reviews</h2>
           {reviewsLoading ? <p className="mt-2 text-sm text-neutral-500">Loading reviews…</p> : null}
           {reviewsFailed ? <p className="mt-2 text-sm text-red-600 dark:text-red-400">Could not load reviews.</p> : null}
@@ -415,7 +419,7 @@ export function TradesmanPublicProfileView({
         </section>
       ) : null}
 
-      <section className="mt-6 border-t border-neutral-200 pt-5 dark:border-neutral-800">
+      <section className="rounded-2xl border border-neutral-200 bg-white/90 p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-950/80 sm:p-5">
         <h2 className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">Portfolio</h2>
         <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
           Tap a project to view photos and full details.
@@ -426,14 +430,14 @@ export function TradesmanPublicProfileView({
           <p className="mt-2 text-sm text-neutral-500">No public projects yet.</p>
         ) : null}
         {portfolio && portfolio.projects.length > 0 ? (
-          <ul className="mt-3 space-y-2">
+          <ul className="mt-3 max-w-3xl space-y-2">
             {portfolio.projects.map((proj: PortfolioProjectPublic) => {
               const open = expandedPortfolioId === proj.id;
               const thumb = proj.images[0];
               return (
                 <li
                   key={proj.id}
-                  className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50/80 dark:border-neutral-800 dark:bg-neutral-900/40"
+                  className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm transition hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900/50"
                 >
                   <button
                     type="button"

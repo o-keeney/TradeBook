@@ -21,10 +21,10 @@ export function PageShell({
 
   return (
     <div className={widthClass}>
-      <header className="mb-8 border-b border-[var(--border)] pb-6">
+      <header className="mb-8 rounded-2xl border border-[var(--border)]/70 bg-[var(--surface)]/75 px-5 py-5 shadow-[0_8px_28px_rgb(15_23_42_/0.05)] backdrop-blur sm:px-6">
         <h1 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">{title}</h1>
         {description ? (
-          <p className="mt-2 text-sm text-[var(--muted)]">
+          <p className="mt-2 max-w-2xl text-sm text-[var(--muted)]">
             {description}
           </p>
         ) : null}

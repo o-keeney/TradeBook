@@ -87,6 +87,7 @@ export const consentAuditLogs = sqliteTable(
 export const verificationStatusEnum = ["none", "pending", "verified"] as const;
 export const subscriptionStatusEnum = [
   "inactive",
+  "trialing",
   "active",
   "past_due",
   "cancelled",
@@ -122,6 +123,11 @@ export const tradesmenProfiles = sqliteTable("tradesmen_profiles", {
     .notNull()
     .default("inactive"),
   subscriptionTier: text("subscription_tier"),
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  stripePriceId: text("stripe_price_id"),
+  stripeCurrentPeriodEnd: integer("stripe_current_period_end", { mode: "timestamp_ms" }),
+  stripeTrialEndsAt: integer("stripe_trial_ends_at", { mode: "timestamp_ms" }),
   avgRating: real("avg_rating"),
   reviewCount: integer("review_count").notNull().default(0),
   contactEmail: text("contact_email"),
@@ -377,6 +383,42 @@ export const plannerTasks = sqliteTable(
   (t) => [index("planner_tasks_work_order_id_idx").on(t.workOrderId)],
 );
 
+/** Calendar appointments booked by the assigned tradesperson for a work order. */
+export const workOrderAppointments = sqliteTable(
+  "work_order_appointments",
+  {
+    id: text("id").primaryKey(),
+    workOrderId: text("work_order_id")
+      .notNull()
+      .references(() => workOrders.id, { onDelete: "cascade" }),
+    tradesmanId: text("tradesman_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    customerId: text("customer_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    notes: text("notes"),
+    startsAt: integer("starts_at", { mode: "timestamp_ms" }).notNull(),
+    endsAt: integer("ends_at", { mode: "timestamp_ms" }).notNull(),
+    reminderSentAt: integer("reminder_sent_at", { mode: "timestamp_ms" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(strftime('%s','now') * 1000)`),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(strftime('%s','now') * 1000)`),
+  },
+  (t) => [
+    index("work_order_appointments_work_order_id_idx").on(t.workOrderId),
+    index("work_order_appointments_tradesman_id_starts_at_idx").on(
+      t.tradesmanId,
+      t.startsAt,
+    ),
+    index("work_order_appointments_customer_id_idx").on(t.customerId),
+  ],
+);
+
 /** One chat thread per work order (customer ↔ assignee). */
 export const conversations = sqliteTable(
   "conversations",
@@ -437,6 +479,30 @@ export const conversationReadStates = sqliteTable(
   (t) => [
     primaryKey({ columns: [t.conversationId, t.userId] }),
     index("conversation_read_states_user_id_idx").on(t.userId),
+  ],
+);
+
+/** In-app notifications shown in the web app header/inbox. */
+export const notifications = sqliteTable(
+  "notifications",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    actorUserId: text("actor_user_id").references(() => users.id, { onDelete: "set null" }),
+    type: text("type").notNull(),
+    title: text("title").notNull(),
+    body: text("body"),
+    href: text("href"),
+    readAt: integer("read_at", { mode: "timestamp_ms" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(strftime('%s','now') * 1000)`),
+  },
+  (t) => [
+    index("notifications_user_id_created_at_idx").on(t.userId, t.createdAt),
+    index("notifications_user_id_read_at_idx").on(t.userId, t.readAt),
   ],
 );
 

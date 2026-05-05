@@ -123,7 +123,7 @@ export default function AdminPage() {
             Contact inbox — public form submissions (this page)
           </a>
           <div className="rounded-xl border border-dashed border-neutral-300 p-4 text-sm text-neutral-500 dark:border-neutral-600 dark:text-neutral-400">
-            Subscriptions &amp; billing (Stripe) — planned; pricing field below is interim.
+            Subscriptions &amp; billing (Stripe) — checkout and customer portal are live for tradesmen.
           </div>
           <div className="rounded-xl border border-dashed border-neutral-300 p-4 text-sm text-neutral-500 dark:border-neutral-600 dark:text-neutral-400">
             Moderation &amp; reviews — planned.

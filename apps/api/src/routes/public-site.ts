@@ -17,7 +17,7 @@ export const publicSiteRoutes = new Hono<{ Bindings: Env }>()
   .get("/site-config", async (c) => {
     const db = createDb(c.env.DB);
     const tradesmanMonthlyEuros = await getTradesmanMonthlyEuros(db);
-    return c.json({ tradesmanMonthlyEuros });
+    return c.json({ tradesmanMonthlyEuros, firstMonthFreeDays: 30 });
   })
   .post("/contact", async (c) => {
     let body: z.infer<typeof contactBodySchema>;

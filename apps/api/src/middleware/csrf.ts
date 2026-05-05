@@ -52,7 +52,8 @@ function isCsrfExemptPath(path: string): boolean {
     p === "/api/auth/register" ||
     p === "/api/auth/forgot-password" ||
     p === "/api/auth/reset-password" ||
-    p === "/api/public/contact"
+    p === "/api/public/contact" ||
+    p === "/api/billing/stripe/webhook"
   );
 }
 

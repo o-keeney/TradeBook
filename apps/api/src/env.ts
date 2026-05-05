@@ -28,4 +28,8 @@ export interface Env {
   BREVO_SENDER_EMAIL?: string;
   /** Display name for the sender (optional). */
   BREVO_SENDER_NAME?: string;
+  /** Stripe secret key (server-side API access). */
+  STRIPE_SECRET_KEY?: string;
+  /** Stripe webhook signing secret for POST /api/billing/stripe/webhook. */
+  STRIPE_WEBHOOK_SECRET?: string;
 }

@@ -135,6 +135,9 @@ export default function DashboardPage() {
             {user.role === "tradesman" ? (
               <>
                 <li>
+                  <TradesmanBillingCard />
+                </li>
+                <li>
                   <DashboardActionCard
                     href="/profile"
                     title="Public profile"
@@ -196,6 +199,147 @@ export default function DashboardPage() {
         )}
       </div>
     </PageShell>
+  );
+}
+
+type TradesmanBilling = {
+  tradesmanMonthlyEuros: number;
+  firstMonthFreeDays: number;
+  subscription: {
+    status: string;
+    tier: string | null;
+    stripeCustomerId: string | null;
+    stripeSubscriptionId: string | null;
+    currentPeriodEndMs: number | null;
+    trialEndsAtMs: number | null;
+  };
+};
+
+function TradesmanBillingCard() {
+  const [billing, setBilling] = useState<TradesmanBilling | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<"checkout" | "portal" | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setMsg(null);
+      try {
+        const res = await apiFetch("/api/billing/tradesman");
+        const data = (await res.json().catch(() => ({}))) as TradesmanBilling & {
+          error?: { message?: string };
+        };
+        if (!res.ok) {
+          if (!cancelled) setMsg(data.error?.message ?? "Could not load billing.");
+          return;
+        }
+        if (!cancelled) setBilling(data);
+      } catch {
+        if (!cancelled) setMsg("Could not load billing.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function beginCheckout() {
+    setBusy("checkout");
+    setMsg(null);
+    try {
+      const res = await apiFetch("/api/billing/tradesman/checkout-session", { method: "POST" });
+      const data = (await res.json().catch(() => ({}))) as { url?: string; error?: { message?: string } };
+      if (!res.ok || !data.url) {
+        setMsg(data.error?.message ?? "Could not start checkout.");
+        return;
+      }
+      window.location.href = data.url;
+    } catch {
+      setMsg("Could not start checkout.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function openPortal() {
+    setBusy("portal");
+    setMsg(null);
+    try {
+      const res = await apiFetch("/api/billing/tradesman/portal-session", { method: "POST" });
+      const data = (await res.json().catch(() => ({}))) as { url?: string; error?: { message?: string } };
+      if (!res.ok || !data.url) {
+        setMsg(data.error?.message ?? "Could not open Stripe billing portal.");
+        return;
+      }
+      window.location.href = data.url;
+    } catch {
+      setMsg("Could not open Stripe billing portal.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const euro = new Intl.NumberFormat("en-IE", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(billing?.tradesmanMonthlyEuros ?? 30);
+
+  const status = billing?.subscription.status ?? "inactive";
+  const trialEnds =
+    billing?.subscription.trialEndsAtMs != null
+      ? new Date(billing.subscription.trialEndsAtMs).toLocaleDateString("en-IE", { dateStyle: "medium" })
+      : null;
+  const periodEnds =
+    billing?.subscription.currentPeriodEndMs != null
+      ? new Date(billing.subscription.currentPeriodEndMs).toLocaleDateString("en-IE", { dateStyle: "medium" })
+      : null;
+
+  return (
+    <article className="rounded-2xl border border-neutral-200/90 bg-gradient-to-b from-white to-neutral-50/95 p-5 shadow-sm dark:border-neutral-800 dark:from-neutral-950 dark:to-neutral-900/85">
+      <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-50">Subscription & billing</h3>
+      {loading ? <p className="mt-2 text-sm text-neutral-500">Loading billing…</p> : null}
+      {!loading ? (
+        <>
+          <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+            Tradesman plan is {euro} per month, with your first {billing?.firstMonthFreeDays ?? 30} days free.
+          </p>
+          <p className="mt-2 text-sm text-neutral-700 dark:text-neutral-300">
+            Status: <span className="font-medium">{status}</span>
+            {trialEnds ? ` · Trial ends ${trialEnds}` : ""}
+            {periodEnds ? ` · Current period ends ${periodEnds}` : ""}
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void beginCheckout()}
+              disabled={busy !== null}
+              className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 disabled:opacity-60 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
+            >
+              {busy === "checkout" ? "Starting…" : "Start Stripe checkout"}
+            </button>
+            <button
+              type="button"
+              onClick={() => void openPortal()}
+              disabled={busy !== null}
+              className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-900 hover:bg-neutral-100 disabled:opacity-60 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100 dark:hover:bg-neutral-900"
+            >
+              {busy === "portal" ? "Opening…" : "Manage in Stripe"}
+            </button>
+          </div>
+          {msg ? (
+            <p className="mt-3 text-xs text-red-600 dark:text-red-400" role="alert">
+              {msg}
+            </p>
+          ) : null}
+        </>
+      ) : null}
+    </article>
   );
 }
 

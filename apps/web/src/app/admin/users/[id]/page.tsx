@@ -516,6 +516,7 @@ export default function AdminUserEditPage() {
                 className="mt-1.5 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
               >
                 <option value="inactive">inactive</option>
+                <option value="trialing">trialing</option>
                 <option value="active">active</option>
                 <option value="past_due">past_due</option>
                 <option value="cancelled">cancelled</option>

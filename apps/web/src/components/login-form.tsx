@@ -56,59 +56,67 @@ export function LoginForm({ nextPath = "/dashboard" }: LoginFormProps) {
   }
 
   return (
-    <form method="post" onSubmit={(e) => void onSubmit(e)} className="max-w-md space-y-4">
-      {resetBanner ? (
-        <p
-          className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-950 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-100"
-          role="status"
-        >
-          Your password was updated. Sign in with your new password.
+    <div className="mx-auto w-full max-w-md rounded-2xl border border-neutral-200 bg-white/90 p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-950/80 sm:p-6">
+      <form method="post" onSubmit={(e) => void onSubmit(e)} className="space-y-4">
+        {resetBanner ? (
+          <p
+            className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-950 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-100"
+            role="status"
+          >
+            Your password was updated. Sign in with your new password.
+          </p>
+        ) : null}
+
+        <label className="block text-sm font-medium text-neutral-800 dark:text-neutral-200">
+          Email
+          <input
+            name="email"
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            className="mt-1.5 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-neutral-900 shadow-sm focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
+          />
+        </label>
+
+        <label className="block text-sm font-medium text-neutral-800 dark:text-neutral-200">
+          Password
+          <input
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="mt-1.5 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-neutral-900 shadow-sm focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
+          />
+        </label>
+
+        {error ? (
+          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300" role="alert">
+            {error}
+          </p>
+        ) : null}
+
+        <p className="text-right text-sm">
+          <Link
+            href="/forgot-password"
+            className="font-medium text-neutral-600 underline hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+          >
+            Forgot password?
+          </Link>
         </p>
-      ) : null}
-      <label className="block text-sm font-medium text-neutral-800 dark:text-neutral-200">
-        Email
-        <input
-          name="email"
-          type="email"
-          autoComplete="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="mt-1.5 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-neutral-900 shadow-sm focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
-        />
-      </label>
-      <label className="block text-sm font-medium text-neutral-800 dark:text-neutral-200">
-        Password
-        <input
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="mt-1.5 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-neutral-900 shadow-sm focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
-        />
-      </label>
-      {error ? (
-        <p className="text-sm text-red-600 dark:text-red-400" role="alert">
-          {error}
-        </p>
-      ) : null}
-      <p className="text-right text-sm">
-        <Link
-          href="/forgot-password"
-          className="font-medium text-neutral-600 underline hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+
+        <button
+          type="submit"
+          disabled={pending}
+          className="w-full rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white shadow hover:bg-neutral-800 disabled:opacity-60 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
         >
-          Forgot password?
-        </Link>
-      </p>
-      <button
-        type="submit"
-        disabled={pending}
-        className="w-full rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white shadow hover:bg-neutral-800 disabled:opacity-60 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
-      >
-        {pending ? "Signing in…" : "Sign in"}
-      </button>
-    </form>
+          {pending ? "Signing in…" : "Sign in"}
+        </button>
+      </form>
+    </div>
   );
 }

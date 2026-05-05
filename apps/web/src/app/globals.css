@@ -10,49 +10,49 @@
  */
 :root {
   color-scheme: light;
-  --background: #f8fafc;
+  --background: #f3f6ff;
   --foreground: #0f172a;
   --surface: #ffffff;
-  --border: #e2e8f0;
-  --border-strong: #cbd5e1;
-  --muted: #64748b;
-  --muted-foreground: #475569;
-  --primary: #6366f1;
-  --primary-hover: #4f46e5;
+  --border: #dce4f4;
+  --border-strong: #c1d0eb;
+  --muted: #5f6f8e;
+  --muted-foreground: #44506b;
+  --primary: #5b6cff;
+  --primary-hover: #4c5df3;
   --secondary: #8b5cf6;
   --accent: #22c55e;
-  --nav-active-bg: #e0e7ff;
-  --nav-active-fg: #312e81;
-  --nav-hover-bg: #f1f5f9;
+  --nav-active-bg: #e6ebff;
+  --nav-active-fg: #27357a;
+  --nav-hover-bg: #edf2ff;
   --nav-hover-fg: #0f172a;
   --btn-primary-bg: var(--primary);
   --btn-primary-hover: var(--primary-hover);
   --btn-primary-fg: #ffffff;
-  --footer-bg: rgb(248 250 252 / 0.92);
-  --hero-gradient-from: #eef2ff;
+  --footer-bg: rgb(245 248 255 / 0.85);
+  --hero-gradient-from: #e7edff;
 }
 
 html.dark {
   color-scheme: dark;
   --background: #0a0a0a;
-  --foreground: #fafafa;
-  --surface: #171717;
+  --foreground: #f5f5f5;
+  --surface: #141414;
   --border: #262626;
-  --border-strong: #404040;
-  --muted: #a3a3a3;
-  --muted-foreground: #d4d4d4;
-  --primary: #fafafa;
-  --primary-hover: #e5e5e5;
+  --border-strong: #3f3f46;
+  --muted: #a1a1aa;
+  --muted-foreground: #d4d4d8;
+  --primary: #e5e7eb;
+  --primary-hover: #d4d4d8;
   --secondary: #a78bfa;
   --accent: #22c55e;
-  --nav-active-bg: #404040;
+  --nav-active-bg: #27272a;
   --nav-active-fg: #fafafa;
-  --nav-hover-bg: #262626;
-  --nav-hover-fg: #fafafa;
-  --btn-primary-bg: #fafafa;
-  --btn-primary-hover: #e5e5e5;
+  --nav-hover-bg: #1f1f23;
+  --nav-hover-fg: #f5f5f5;
+  --btn-primary-bg: #f5f5f5;
+  --btn-primary-hover: #e5e7eb;
   --btn-primary-fg: #0a0a0a;
-  --footer-bg: rgb(10 10 10 / 0.88);
+  --footer-bg: rgb(10 10 10 / 0.82);
   --hero-gradient-from: #0a0a0a;
 }
 
@@ -77,8 +77,27 @@ html {
 
 body {
   color: var(--foreground);
-  background-color: var(--background);
+  background:
+    radial-gradient(900px circle at 12% -12%, rgb(123 146 255 / 0.16), transparent 55%),
+    radial-gradient(700px circle at 82% 2%, rgb(126 105 255 / 0.1), transparent 45%),
+    var(--background);
   font-family: system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+html.dark body {
+  background: var(--background);
+}
+
+* {
+  transition-property: background-color, border-color, color, box-shadow, transform;
+  transition-duration: 180ms;
+  transition-timing-function: ease;
+}
+
+::selection {
+  background: rgb(95 118 255 / 0.32);
+  color: var(--foreground);
 }
 
 :root {
