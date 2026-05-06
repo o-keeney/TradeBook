@@ -419,6 +419,32 @@ export const workOrderAppointments = sqliteTable(
   ],
 );
 
+/** Provider-entered itemized expenses tied to an active assigned work order. */
+export const workOrderExpenses = sqliteTable(
+  "work_order_expenses",
+  {
+    id: text("id").primaryKey(),
+    workOrderId: text("work_order_id")
+      .notNull()
+      .references(() => workOrders.id, { onDelete: "cascade" }),
+    providerId: text("provider_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    itemLabel: text("item_label").notNull(),
+    notes: text("notes"),
+    amount: real("amount").notNull(),
+    incurredAt: integer("incurred_at", { mode: "timestamp_ms" }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(strftime('%s','now') * 1000)`),
+  },
+  (t) => [
+    index("work_order_expenses_work_order_id_idx").on(t.workOrderId),
+    index("work_order_expenses_provider_id_idx").on(t.providerId),
+    index("work_order_expenses_work_order_id_incurred_at_idx").on(t.workOrderId, t.incurredAt),
+  ],
+);
+
 /** One chat thread per work order (customer ↔ assignee). */
 export const conversations = sqliteTable(
   "conversations",

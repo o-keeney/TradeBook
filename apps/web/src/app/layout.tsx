@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { CookieConsentBanner } from "@/components/cookie-consent-banner";
+import { GoogleAdsBootstrap } from "@/components/google-ads-bootstrap";
 import { OrganizationJsonLd } from "@/components/organization-jsonld";
 import { SkipToMain } from "@/components/skip-to-main";
 import { SiteFooter } from "@/components/site-footer";
@@ -57,6 +58,7 @@ export default function RootLayout({
           {themeBoot}
         </Script>
         <ThemeProvider>
+          <GoogleAdsBootstrap />
           <OrganizationJsonLd />
           <SkipToMain />
           <SiteHeader />

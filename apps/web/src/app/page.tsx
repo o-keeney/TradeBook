@@ -3,16 +3,16 @@ import { AdSlot } from "@/components/ad-slot";
 import { getPublicApiUrl } from "@/lib/public-env";
 
 const tradesmanFeatures = [
-  "Showcase work in a public portfolio with photos and project notes.",
-  "See work orders in your area, place bids, and win jobs.",
-  "Track each job with timelines, status updates, and customer communication.",
-  "Build a profile customers can share and look up when you are ready to quote.",
+  "Showcase completed work in a public portfolio.",
+  "Discover open jobs, submit quotes, and respond to direct requests.",
+  "Manage delivery with task planning, appointments, updates, and messaging.",
+  "Track job spend with an itemized expense ledger and live total.",
 ] as const;
 
 const customerFeatures = [
-  "Browse tradespeople: open a profile and see their public portfolio.",
-  "Post work orders, compare bids, and follow each job in one timeline.",
-  "Stay in the loop with status updates instead of scattered texts and calls.",
+  "Find and compare providers through verified profiles and portfolios.",
+  "Publish direct or open jobs, then review, accept, or reject quotes.",
+  "Oversee progress with shared timelines, status tracking, appointments, and messaging.",
 ] as const;
 
 function FeatureList({ items }: { items: readonly string[] }) {
@@ -71,6 +71,9 @@ export default async function Home() {
     <div>
       <section className="border-b border-[var(--border)] bg-gradient-to-b from-[var(--hero-gradient-from)] to-[var(--background)] px-4 py-16 sm:py-24">
         <div className="mx-auto max-w-2xl text-center">
+          <p className="text-3xl font-semibold tracking-[-0.02em] text-[var(--foreground)] sm:text-4xl">
+            TradeBook
+          </p>
           <p className="text-sm font-medium uppercase tracking-wide text-[var(--muted)]">Ireland</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--foreground)] sm:text-4xl">
             Find tradespeople. Run jobs. Stay in control.
@@ -85,7 +88,9 @@ export default async function Home() {
         <div className="grid gap-6 md:grid-cols-2 md:gap-8">
           <article className="flex h-full flex-col rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-950 sm:p-8">
             <h2 className="text-lg font-semibold text-[var(--foreground)]">Are you a service provider?</h2>
-            <p className="mt-2 text-sm text-[var(--muted)]">Register now to benefit from the perks of our platform.</p>
+            <p className="mt-2 text-sm text-[var(--muted)]">
+              Win more work, run jobs efficiently, and present your business professionally.
+            </p>
             <FeatureList items={tradesmanFeatures} />
             <div className="mt-auto pt-8">
               <Link href="/register/tradesman" className="tb-btn-primary-lg">
@@ -113,7 +118,7 @@ export default async function Home() {
           <article className="flex h-full flex-col rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-950 sm:p-8">
             <h2 className="text-lg font-semibold text-[var(--foreground)]">For customers</h2>
             <p className="mt-2 text-sm text-[var(--muted)]">
-              Use Tradebook to discover trades, compare work, and stay on top of jobs as we roll out the full customer experience.
+              Source the right provider, compare offers, and keep every job under control.
             </p>
             <FeatureList items={customerFeatures} />
             <div className="mt-auto pt-8">

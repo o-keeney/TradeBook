@@ -27,6 +27,10 @@ export function hasMarketingConsent(): boolean {
   return readCookieConsent()?.marketing === true;
 }
 
+export function hasAnalyticsConsent(): boolean {
+  return readCookieConsent()?.analytics === true;
+}
+
 export function writeCookieConsent(analytics: boolean, marketing: boolean): void {
   const payload: CookieConsentV1 = {
     v: 1,

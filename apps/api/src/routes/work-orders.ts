@@ -9,6 +9,7 @@ import {
   plannerTasks,
   users,
   workOrderAppointments,
+  workOrderExpenses,
   workOrders,
 } from "../db/schema";
 import type { Env } from "../env";
@@ -137,6 +138,13 @@ const postAppointmentSchema = z
       });
     }
   });
+
+const postExpenseSchema = z.object({
+  itemLabel: z.string().min(1).max(200),
+  notes: z.string().max(4000).optional(),
+  amount: z.number().positive().max(10_000_000),
+  incurredAt: z.string().datetime().optional(),
+});
 
 /** Same caps as portfolio uploads (client compression expected). */
 const MAX_JOB_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -1015,6 +1023,76 @@ export const workOrderRoutes = new Hono<{
       .from(workOrderAppointments)
       .where(eq(workOrderAppointments.id, appointmentId));
     return c.json({ appointment: row });
+  })
+  .get("/:id/expenses", async (c) => {
+    const id = c.req.param("id");
+    const u = c.get("user");
+    const db = createDb(c.env.DB);
+
+    const [wo] = await db.select().from(workOrders).where(eq(workOrders.id, id));
+    if (!wo) {
+      return c.json({ error: { code: "not_found", message: "Not found" } }, 404);
+    }
+    if (!canViewWorkOrder(u, wo)) {
+      return c.json({ error: { code: "forbidden", message: "Forbidden" } }, 403);
+    }
+
+    const items = await db
+      .select()
+      .from(workOrderExpenses)
+      .where(eq(workOrderExpenses.workOrderId, id))
+      .orderBy(desc(workOrderExpenses.incurredAt), desc(workOrderExpenses.createdAt));
+    const totalAmount = items.reduce((sum, item) => sum + Number(item.amount ?? 0), 0);
+    return c.json({ items, totalAmount });
+  })
+  .post("/:id/expenses", requireTradesman, async (c) => {
+    const id = c.req.param("id");
+    const u = c.get("user");
+    let body: z.infer<typeof postExpenseSchema>;
+    try {
+      body = postExpenseSchema.parse(await c.req.json());
+    } catch (e) {
+      if (e instanceof z.ZodError) {
+        return c.json(
+          { error: { code: "validation_error", details: e.flatten() } },
+          400,
+        );
+      }
+      throw e;
+    }
+
+    const db = createDb(c.env.DB);
+    const [wo] = await db.select().from(workOrders).where(eq(workOrders.id, id));
+    if (!wo) {
+      return c.json({ error: { code: "not_found", message: "Not found" } }, 404);
+    }
+    if (wo.assignedTradesmanId !== u.id) {
+      return c.json({ error: { code: "forbidden", message: "Forbidden" } }, 403);
+    }
+    if (!["accepted", "in_progress", "awaiting_info"].includes(wo.status)) {
+      return c.json(
+        { error: { code: "conflict", message: "Expense tracking is only available on active jobs" } },
+        409,
+      );
+    }
+
+    const expenseId = crypto.randomUUID();
+    const now = new Date();
+    const incurredAt = body.incurredAt ? new Date(body.incurredAt) : now;
+    await db.insert(workOrderExpenses).values({
+      id: expenseId,
+      workOrderId: id,
+      providerId: u.id,
+      itemLabel: body.itemLabel.trim(),
+      notes: body.notes?.trim() ? body.notes.trim() : null,
+      amount: body.amount,
+      incurredAt,
+      createdAt: now,
+    });
+
+    await db.update(workOrders).set({ updatedAt: now }).where(eq(workOrders.id, id));
+    const [item] = await db.select().from(workOrderExpenses).where(eq(workOrderExpenses.id, expenseId));
+    return c.json({ item }, 201);
   })
   .post("/:id/media", async (c) => {
     const id = c.req.param("id");

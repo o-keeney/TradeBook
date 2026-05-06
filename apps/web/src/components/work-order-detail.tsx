@@ -44,6 +44,17 @@ type WorkOrderBidRow = {
   createdAt: string | number | Date;
 };
 
+type WorkOrderExpenseRow = {
+  id: string;
+  workOrderId: string;
+  providerId: string;
+  itemLabel: string;
+  notes: string | null;
+  amount: number;
+  incurredAt: string | number | Date;
+  createdAt: string | number | Date;
+};
+
 function formatDateTime(v: unknown): string {
   if (v == null) return "";
   const d = typeof v === "number" ? new Date(v) : new Date(String(v));
@@ -270,6 +281,15 @@ export function WorkOrderDetail() {
   const [customerBidsErr, setCustomerBidsErr] = useState<string | null>(null);
   const [awardBusyBidId, setAwardBusyBidId] = useState<string | null>(null);
   const [rejectBidBusyId, setRejectBidBusyId] = useState<string | null>(null);
+  const [expenses, setExpenses] = useState<WorkOrderExpenseRow[]>([]);
+  const [expenseTotal, setExpenseTotal] = useState(0);
+  const [expensesLoading, setExpensesLoading] = useState(false);
+  const [expensesErr, setExpensesErr] = useState<string | null>(null);
+  const [expenseItemLabel, setExpenseItemLabel] = useState("");
+  const [expenseAmount, setExpenseAmount] = useState("");
+  const [expenseNotes, setExpenseNotes] = useState("");
+  const [expenseBusy, setExpenseBusy] = useState(false);
+  const [expenseMsg, setExpenseMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -343,12 +363,42 @@ export function WorkOrderDetail() {
       } else {
         setUpdates([]);
       }
+
+      if (
+        woRow &&
+        meUser &&
+        (meUser.id === woRow.customerId || meUser.id === woRow.assignedTradesmanId)
+      ) {
+        setExpensesLoading(true);
+        setExpensesErr(null);
+        const expensesRes = await apiFetch(`/api/work-orders/${encodeURIComponent(id)}/expenses`);
+        if (expensesRes.ok) {
+          const ej = (await expensesRes.json()) as {
+            items?: WorkOrderExpenseRow[];
+            totalAmount?: number;
+          };
+          setExpenses(ej.items ?? []);
+          setExpenseTotal(Number(ej.totalAmount ?? 0));
+        } else {
+          setExpenses([]);
+          setExpenseTotal(0);
+          setExpensesErr("Could not load expense tracker.");
+        }
+        setExpensesLoading(false);
+      } else {
+        setExpenses([]);
+        setExpenseTotal(0);
+        setExpensesErr(null);
+        setExpensesLoading(false);
+      }
     } catch {
       setError("Network error.");
       setWorkOrder(null);
       setUpdates([]);
       setMe(null);
       setReviewInfo(null);
+      setExpenses([]);
+      setExpenseTotal(0);
     } finally {
       setLoading(false);
     }
@@ -517,6 +567,10 @@ export function WorkOrderDetail() {
     wo.submissionType === "open_bid";
   const pendingQuotesCount = customerBids.filter((b) => b.status === "submitted").length;
   const hasPendingQuotes = pendingQuotesCount > 0;
+  const isAssignedProvider = me?.role === "tradesman" && me.id === wo.assignedTradesmanId;
+  const canTrackExpenses = isAssignedProvider && ["accepted", "in_progress", "awaiting_info"].includes(wo.status);
+  const canViewExpenses =
+    me != null && (me.id === wo.customerId || me.id === wo.assignedTradesmanId);
 
   const rejectOpenQuotes = async () => {
     if (!showRejectQuotes || rejectBusy) return;
@@ -728,6 +782,56 @@ export function WorkOrderDetail() {
       setPhotoErr("Network error.");
     } finally {
       setPhotoBusy(false);
+    }
+  };
+
+  const submitExpense = async () => {
+    if (!canTrackExpenses || expenseBusy) return;
+    const itemLabel = expenseItemLabel.trim();
+    const amountRaw = expenseAmount.trim();
+    if (!itemLabel) {
+      setExpenseMsg("Enter an item name.");
+      return;
+    }
+    const amountNum = Number.parseFloat(amountRaw.replace(",", "."));
+    if (!Number.isFinite(amountNum) || amountNum <= 0) {
+      setExpenseMsg("Enter a valid amount greater than zero.");
+      return;
+    }
+
+    setExpenseBusy(true);
+    setExpenseMsg(null);
+    try {
+      const res = await apiFetch(`/api/work-orders/${wo.id}/expenses`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          itemLabel,
+          amount: amountNum,
+          notes: expenseNotes.trim() || undefined,
+        }),
+      });
+      const raw = await res.text();
+      if (!res.ok) {
+        let msg = "Could not add expense.";
+        try {
+          const j = JSON.parse(raw) as { error?: { message?: string } };
+          if (j.error?.message) msg = j.error.message;
+        } catch {
+          /* ignore */
+        }
+        setExpenseMsg(msg);
+        return;
+      }
+      setExpenseItemLabel("");
+      setExpenseAmount("");
+      setExpenseNotes("");
+      setExpenseMsg("Expense added.");
+      await load();
+    } catch {
+      setExpenseMsg("Network error.");
+    } finally {
+      setExpenseBusy(false);
     }
   };
 
@@ -950,7 +1054,7 @@ export function WorkOrderDetail() {
               </span>
               <span>
                 <span className="block text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-                  Quotes menu
+                  Quotes received
                 </span>
                 <span className="block text-xs text-neutral-600 dark:text-neutral-400">
                   Review and accept provider quotes quickly
@@ -1122,6 +1226,145 @@ export function WorkOrderDetail() {
         meRole={me?.role ?? null}
         meId={me?.id ?? null}
       />
+
+      {canViewExpenses ? (
+        <section className="mb-10 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-950 sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+                Expense tracker
+              </h2>
+              <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+                Itemized provider expenses for this job.
+              </p>
+            </div>
+            <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+              Total:{" "}
+              {new Intl.NumberFormat("en-IE", { style: "currency", currency: "EUR" }).format(
+                expenseTotal,
+              )}
+            </p>
+          </div>
+
+          {canTrackExpenses ? (
+            <div className="mt-4 rounded-xl border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-700 dark:bg-neutral-900/50">
+              <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                Add expense item
+              </p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                  Item
+                  <input
+                    value={expenseItemLabel}
+                    onChange={(e) => setExpenseItemLabel(e.target.value)}
+                    maxLength={200}
+                    placeholder="e.g. Timber, screws"
+                    className="mt-1.5 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 shadow-sm focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
+                  />
+                </label>
+                <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                  Amount (EUR)
+                  <input
+                    value={expenseAmount}
+                    onChange={(e) => setExpenseAmount(e.target.value)}
+                    inputMode="decimal"
+                    placeholder="e.g. 89.50"
+                    className="mt-1.5 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 shadow-sm focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
+                  />
+                </label>
+                <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 sm:col-span-2">
+                  Notes (optional)
+                  <textarea
+                    value={expenseNotes}
+                    onChange={(e) => setExpenseNotes(e.target.value)}
+                    rows={2}
+                    maxLength={4000}
+                    placeholder="Optional detail for this cost item."
+                    className="mt-1.5 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 shadow-sm focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
+                  />
+                </label>
+              </div>
+              <div className="mt-3 flex items-center gap-3">
+                <button
+                  type="button"
+                  disabled={expenseBusy}
+                  onClick={() => void submitExpense()}
+                  className="rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-neutral-800 disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
+                >
+                  {expenseBusy ? "Adding…" : "Add expense"}
+                </button>
+                {expenseMsg ? (
+                  <p
+                    className={`text-sm ${expenseMsg === "Expense added." ? "text-emerald-700 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}
+                    role={expenseMsg === "Expense added." ? "status" : "alert"}
+                  >
+                    {expenseMsg}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
+          {expensesErr ? (
+            <p className="mt-3 text-sm text-red-600 dark:text-red-400" role="alert">
+              {expensesErr}
+            </p>
+          ) : null}
+
+          <div className="mt-4">
+            {expensesLoading ? (
+              <p className="text-sm text-neutral-500">Loading expenses…</p>
+            ) : expenses.length === 0 ? (
+              <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                No expenses recorded yet.
+              </p>
+            ) : (
+              <div className="overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-700">
+                <div className="grid grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)_auto] gap-3 border-b border-neutral-200 bg-neutral-100 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">
+                  <span>Details</span>
+                  <span>Date</span>
+                  <span className="text-right">Amount</span>
+                </div>
+                <ul className="divide-y divide-neutral-200 bg-white dark:divide-neutral-800 dark:bg-neutral-950/40">
+                  {expenses.map((item, idx) => (
+                    <li
+                      key={item.id}
+                      className="grid grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)_auto] gap-3 px-4 py-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                          {item.itemLabel}
+                        </p>
+                        {item.notes?.trim() ? (
+                          <p className="mt-1 line-clamp-2 text-xs text-neutral-600 dark:text-neutral-400">
+                            {item.notes.trim()}
+                          </p>
+                        ) : (
+                          <p className="mt-1 text-xs text-neutral-400 dark:text-neutral-500">-</p>
+                        )}
+                      </div>
+                      <div className="text-xs text-neutral-600 dark:text-neutral-400">
+                        {formatDateTime(item.incurredAt)}
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold tabular-nums text-neutral-900 dark:text-neutral-100">
+                          {new Intl.NumberFormat("en-IE", {
+                            style: "currency",
+                            currency: "EUR",
+                          }).format(item.amount)}
+                        </p>
+                        <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
+                          #{String(expenses.length - idx).padStart(3, "0")}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </section>
+      ) : null}
 
       {canUploadJobPhotos(me, wo) ? (
         <section className="mb-10 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-950 sm:p-6">

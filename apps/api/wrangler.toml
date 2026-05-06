@@ -47,4 +47,25 @@ class_name = "ConversationRoom"
 
 [[migrations]]
 tag = "conversation-room-do"
-new_classes = ["ConversationRoom"]
+new_sqlite_classes = ["ConversationRoom"]
+
+[env.production.vars]
+ENVIRONMENT = "production"
+APP_ORIGIN = "https://www.tradebook.ie"
+CORS_ORIGINS = "https://www.tradebook.ie"
+# Set real value via: `wrangler secret put WEBSOCKET_TICKET_SECRET --env production`
+WEBSOCKET_TICKET_SECRET = "set-via-secret"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "tradebook-db"
+database_id = "42d738dc-68d1-4efc-a10b-5fc353f8fc81"
+migrations_dir = "migrations"
+
+[[env.production.r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "tradebook-media"
+
+[[env.production.durable_objects.bindings]]
+name = "CONVERSATION_ROOM"
+class_name = "ConversationRoom"

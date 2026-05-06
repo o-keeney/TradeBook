@@ -77,14 +77,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-50 bg-[var(--background)]/70 backdrop-blur-xl">
       <div className="mx-auto max-w-5xl px-4 py-3">
         <div className="flex flex-col gap-3 rounded-2xl border border-[var(--border)]/70 bg-[var(--surface)]/80 px-3 py-2 shadow-[0_10px_35px_rgb(15_23_42_/0.06)] sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap items-center gap-3">
-            <Link
-              href="/"
-              className="text-lg font-semibold tracking-tight text-[var(--foreground)]"
-              aria-current={pathname === "/" ? "page" : undefined}
-            >
-              Tradebook
-            </Link>
+          <div className="flex flex-wrap items-center">
             <nav className="flex flex-wrap gap-x-1 gap-y-2 rounded-xl bg-[var(--background)]/55 p-1 text-sm" aria-label="Primary">
               {primaryLinks.map((item) => {
                 if ("whenSignedIn" in item && item.whenSignedIn && !user) return null;

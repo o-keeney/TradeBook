@@ -16,6 +16,15 @@ The app calls `/api/*` on the same origin; `next.config.ts` rewrites those reque
 
 **Google AdSense (optional):** set `NEXT_PUBLIC_ADSENSE_PUBLISHER` to your client id (`ca-pub-…`), plus numeric slot ids: `NEXT_PUBLIC_ADSENSE_SLOT_HOME` and `NEXT_PUBLIC_ADSENSE_SLOT_FIND`. Slots render only after the user chooses **Accept all** on the cookie banner (marketing consent). Without these vars, ad regions stay empty and no third-party script loads.
 
+**Google Ads conversions (optional):**
+
+- Set `NEXT_PUBLIC_GOOGLE_ADS_TAG_ID` (format `AW-123456789`) to load the global Google tag (`gtag.js`) app-wide.
+- Consent mode is wired to the cookie banner:
+  - marketing consent toggles ad storage/user data/personalization
+  - analytics consent toggles analytics storage
+- Add conversion action targets as needed, e.g. `NEXT_PUBLIC_GOOGLE_ADS_SEND_TO_LEAD=AW-123456789/AbCdEfGh`.
+- `ads.txt` is served from `src/app/ads.txt/route.ts` using `NEXT_PUBLIC_ADSENSE_PUBLISHER`.
+
 ## Production builds (OpenNext + Cloudflare)
 
 Deploy uses [`@opennextjs/cloudflare`](https://opennext.js.org/cloudflare). On **Windows**, local `next build` / OpenNext output can differ from **Linux** (paths, symlinks, optional native tooling), which can make “works on my machine” diverge from CI or Cloudflare’s build image.
